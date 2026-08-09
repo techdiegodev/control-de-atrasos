@@ -237,10 +237,10 @@ body {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-.stats-grid .stat-card:nth-child(1) { --accent: #2563eb; --tint: #eff6ff; }
-.stats-grid .stat-card:nth-child(2) { --accent: #059669; --tint: #ecfdf5; }
-.stats-grid .stat-card:nth-child(3) { --accent: #d97706; --tint: #fffbeb; }
-.stats-grid .stat-card:nth-child(4) { --accent: #7c3aed; --tint: #f5f3ff; }
+.stats-grid .stat-card:nth-child(1) { --accent: #2563eb; --tint: #dbeafe; }
+.stats-grid .stat-card:nth-child(2) { --accent: #059669; --tint: #d1fae5; }
+.stats-grid .stat-card:nth-child(3) { --accent: #d97706; --tint: #fef3c7; }
+.stats-grid .stat-card:nth-child(4) { --accent: #7c3aed; --tint: #ede9fe; }
 
 .stat-card {
   position: relative;
@@ -320,15 +320,29 @@ body {
 .chart-card-tall { min-height: 420px; }
 
 /* Fondos tenues en las tarjetas del panel */
-.dashboard-left .chart-card:nth-child(1) { background: linear-gradient(160deg, #eff6ff 0%, var(--surface) 65%); }
-.dashboard-left .chart-card:nth-child(2) { background: linear-gradient(160deg, #eef2ff 0%, var(--surface) 65%); }
-.dashboard-left .chart-card:nth-child(3) { background: linear-gradient(160deg, #f0fdfa 0%, var(--surface) 65%); }
-.dashboard-grid > .card:not(.chart-card) { background: linear-gradient(160deg, #fffbeb 0%, var(--surface) 65%); }
+.dashboard-left .chart-card:nth-child(1) { background: linear-gradient(160deg, #dbeafe 0%, var(--surface) 70%); }
+.dashboard-left .chart-card:nth-child(2) { background: linear-gradient(160deg, #e0e7ff 0%, var(--surface) 70%); }
+.dashboard-left .chart-card:nth-child(3) { background: linear-gradient(160deg, #ccfbf1 0%, var(--surface) 70%); }
+.dashboard-grid > .card:not(.chart-card) { background: linear-gradient(160deg, #fef3c7 0%, var(--surface) 70%); }
 
 .chart-card canvas {
   width: 100% !important;
   min-height: 260px;
   display: block;
+}
+
+/* Contenedor de altura fija para que la gráfica de cursos no crezca en bucle */
+.chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+}
+.chart-canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
 }
 
 .chart-controls {
