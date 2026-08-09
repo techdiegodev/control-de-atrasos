@@ -812,10 +812,10 @@ function renderDashboard() {
         label: 'Atrasos',
         data: cursoData,
         backgroundColor: cursoData.map(v =>
-          v === 0 ? '#e2e8f0' : v >= 10 ? '#dc2626' : v >= 5 ? '#d97706' : '#2563eb'
+          v === 0 ? '#E8E2DB' : v >= 10 ? '#BF092F' : v >= 5 ? '#FA891A' : '#1A3263'
         ),
         borderColor: cursoData.map(v =>
-          v === 0 ? '#cbd5e1' : v >= 10 ? '#b91c1c' : v >= 5 ? '#b45309' : '#1d4ed8'
+          v === 0 ? '#d9d3c8' : v >= 10 ? '#8F0725' : v >= 5 ? '#CF4B00' : '#12233F'
         ),
         borderWidth: 1,
         borderRadius: 3,
@@ -837,7 +837,7 @@ function renderDashboard() {
           display: true,
           anchor: 'end',
           align: 'end',
-          color: (ctx) => ctx.dataset.data[ctx.dataIndex] === 0 ? '#94a3b8' : '#0f172a',
+          color: (ctx) => ctx.dataset.data[ctx.dataIndex] === 0 ? '#547792' : '#1A3263',
           font: { weight: 'bold', size: 11 },
           formatter: (value) => value === 0 ? '0' : value,
         },
@@ -849,7 +849,7 @@ function renderDashboard() {
           grid: { color: '#f1f5f9' },
         },
         y: {
-          ticks: { font: { size: 11 }, color: '#334155' },
+          ticks: { font: { size: 11 }, color: '#547792' },
           grid: { display: false },
         },
       },
@@ -867,12 +867,12 @@ const evolution = buildEvolutionSeries();
       datasets: [{
         label: 'Atrasos por día',
         data: evolution.data,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,.08)',
+        borderColor: '#1A3263',
+        backgroundColor: 'rgba(26,50,99,.08)',
         tension: 0.3,
         fill: true,
         pointRadius: 3,
-        pointBackgroundColor: '#2563eb',
+        pointBackgroundColor: '#1A3263',
       }]
     },
     options: {
