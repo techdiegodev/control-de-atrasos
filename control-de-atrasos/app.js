@@ -427,6 +427,9 @@ function updateAccess() {
 
   const newStudentBtn = document.getElementById('btn-nuevo-estudiante');
   if (newStudentBtn) newStudentBtn.style.display = admin ? '' : 'none';
+
+  const clearBtn = document.getElementById('btn-limpiar-registros');
+  if (clearBtn) clearBtn.style.display = admin ? '' : 'none';
 }
 
 async function handleAdminButton() {
@@ -1046,7 +1049,10 @@ function renderHistorico() {
     const badge = a.justificado
       ? '<span class="badge badge-green">Justificado</span>'
       : '<span class="badge badge-amber">Sin Justificar</span>';
-    const actions = '—';
+    const idLiteral = typeof a.id === 'number' ? a.id : `'${a.id}'`;
+    const actions = isAdmin()
+      ? `<button class="btn btn-icon" onclick="confirmDeleteAtraso(${idLiteral})" title="Eliminar atraso">Eliminar</button>`
+      : '—';
     return `<tr>
       <td><strong>${a.student.nombre}</strong></td>
       <td>${a.student.curso}</td>
@@ -1201,16 +1207,55 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
 });
 
 window.confirmDeleteAtraso = function (id) {
-  const a  = loadAtrasos().find(x => x.id === id);
+  const a  = loadAtrasos().find(x => String(x.id) === String(id));
   const st = a ? getStudent(a.studentId) : null;
   openModal('Eliminar atraso',
     `¿Eliminar el atraso de ${st ? st.nombre : 'este estudiante'}?`,
-    () => {
-      saveAtrasos(loadAtrasos().filter(x => x.id !== id));
-      showToast('Atraso eliminado.');
-      renderHistorico();
+    async () => {
+      try {
+        if (isSupabaseEnabled() && usingSupabaseData && a) {
+          const { error } = await supabase.from('atrasos').delete().eq('id', a.id);
+          if (error) throw error;
+        }
+        saveAtrasos(loadAtrasos().filter(x => String(x.id) !== String(id)));
+        showToast('Atraso eliminado.');
+        renderHistorico();
+      } catch (error) {
+        console.error('No se pudo eliminar el atraso en Supabase.', error);
+        showToast(`No se pudo eliminar: ${error.message || 'revise los permisos'}`, 'error');
+      }
     });
 };
+
+window.clearAllAtrasos = function () {
+  const total = loadAtrasos().length;
+  if (total === 0) {
+    showToast('No hay registros para limpiar.', 'error');
+    return;
+  }
+  openModal('Limpiar todos los registros',
+    `¿Eliminar los ${total} registros de atrasos? Esta acción no se puede deshacer.`,
+    async () => {
+      try {
+        if (isSupabaseEnabled() && usingSupabaseData) {
+          const ids = loadAtrasos().map(a => a.id);
+          for (const id of ids) {
+            const { error } = await supabase.from('atrasos').delete().eq('id', id);
+            if (error) throw error;
+          }
+        }
+        saveAtrasos([]);
+        showToast('Todos los registros fueron eliminados.');
+        renderHistorico();
+        renderDashboard();
+      } catch (error) {
+        console.error('No se pudieron eliminar los registros en Supabase.', error);
+        showToast(`No se pudo limpiar: ${error.message || 'revise los permisos'}`, 'error');
+      }
+    });
+};
+
+document.getElementById('btn-limpiar-registros').addEventListener('click', clearAllAtrasos);
 
 window.confirmDeleteStudent = function (id) {
   const st = getStudent(id);
