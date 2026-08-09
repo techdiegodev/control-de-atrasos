@@ -237,15 +237,15 @@ body {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-.stats-grid .stat-card:nth-child(1) { --accent: #2563eb; }
-.stats-grid .stat-card:nth-child(2) { --accent: #059669; }
-.stats-grid .stat-card:nth-child(3) { --accent: #d97706; }
-.stats-grid .stat-card:nth-child(4) { --accent: #7c3aed; }
+.stats-grid .stat-card:nth-child(1) { --accent: #2563eb; --tint: #eff6ff; }
+.stats-grid .stat-card:nth-child(2) { --accent: #059669; --tint: #ecfdf5; }
+.stats-grid .stat-card:nth-child(3) { --accent: #d97706; --tint: #fffbeb; }
+.stats-grid .stat-card:nth-child(4) { --accent: #7c3aed; --tint: #f5f3ff; }
 
 .stat-card {
   position: relative;
   overflow: hidden;
-  background: var(--surface);
+  background: linear-gradient(160deg, var(--tint, #ffffff) 0%, var(--surface) 72%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.3rem 1.25rem 1.1rem;
@@ -318,6 +318,12 @@ body {
 
 .chart-card { min-height: 320px; }
 .chart-card-tall { min-height: 420px; }
+
+/* Fondos tenues en las tarjetas del panel */
+.dashboard-left .chart-card:nth-child(1) { background: linear-gradient(160deg, #eff6ff 0%, var(--surface) 65%); }
+.dashboard-left .chart-card:nth-child(2) { background: linear-gradient(160deg, #eef2ff 0%, var(--surface) 65%); }
+.dashboard-left .chart-card:nth-child(3) { background: linear-gradient(160deg, #f0fdfa 0%, var(--surface) 65%); }
+.dashboard-grid > .card:not(.chart-card) { background: linear-gradient(160deg, #fffbeb 0%, var(--surface) 65%); }
 
 .chart-card canvas {
   width: 100% !important;

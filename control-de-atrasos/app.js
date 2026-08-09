@@ -801,6 +801,7 @@ function renderDashboard() {
 
   const ctx2 = document.getElementById('chart-reportes-curso').getContext('2d');
   if (chartCurso) chartCurso.destroy();
+  ctx2.canvas.style.height = `${Math.max(320, cursoLabels.length * 34)}px`;
   chartCurso = new Chart(ctx2, {
     type: 'bar',
     data: {
@@ -822,6 +823,7 @@ function renderDashboard() {
     options: {
       indexAxis: 'y',
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
