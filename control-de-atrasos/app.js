@@ -1277,21 +1277,8 @@ window.confirmDeleteStudent = function (id) {
     });
 };
 
-// ─── EXPORT: DASHBOARD PDF ──────────────────────────────────
-window.exportDashboardPDF = function () {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const fechaHoy = formatDate(today());
-
-  doc.setFontSize(16);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Control de Atrasos — Panel de Control', 14, 18);
-
-  doc.setFontSize(10);
-  doc.setTextColor(100, 116, 139);
-  doc.text(`Generado: ${fechaHoy}`, 14, 25);
-
-  // Stats
+// ─── EXPORT: DATOS DEL PANEL (compartidos) ──────────────────
+function buildDashboardExportData() {
   const atrasos  = loadAtrasos();
   const students = loadStudents();
   const todayStr = today();
@@ -1302,37 +1289,82 @@ window.exportDashboardPDF = function () {
   const byDay    = {};
   last30.forEach(a => { byDay[a.fecha] = (byDay[a.fecha] || 0) + 1; });
   const days = Object.keys(byDay).length;
-  const prom = days ? (last30.length / days).toFixed(1) : 0;
+  const prom  = days ? (last30.length / days).toFixed(1) : 0;
+
+  const totals = {};
+  atrasos.forEach(a => { totals[a.studentId] = (totals[a.studentId] || 0) + 1; });
+  const top = Object.entries(totals)
+    .map(([id, n]) => ({ student: students.find(s => s.id === parseInt(id)), n }))
+    .filter(x => x.student)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 15);
+
+  const byCurso = {};
+  atrasos.forEach(a => {
+    const st = students.find(s => s.id === a.studentId);
+    if (st && st.curso) byCurso[st.curso] = (byCurso[st.curso] || 0) + 1;
+  });
+  const allCourseNames = getAvailableCourseNames();
+  allCourseNames.forEach(c => { if (!(c in byCurso)) byCurso[c] = 0; });
+  const cursoEntries = sortCursos(allCourseNames).map(c => [c, byCurso[c] || 0]);
+
+  const evolution = buildEvolutionSeries();
+  const { from, to } = getEvolutionWindow();
+  const rangeLabel = `${formatDate(from.toISOString().slice(0, 10))} a ${formatDate(to.toISOString().slice(0, 10))}`;
+
+  return { atrasos, students, todayStr, hoy, semana, justHoy, prom, top, cursoEntries, evolution, rangeLabel };
+}
+
+// ─── EXPORT: DASHBOARD PDF ──────────────────────────────────
+window.exportDashboardPDF = function () {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const fechaHoy = formatDate(today());
+  const d = buildDashboardExportData();
+
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Control de Atrasos — Panel de Control', 14, 18);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Generado: ${fechaHoy}`, 14, 25);
+
+  const headStyles = { fillColor: [26, 50, 99], textColor: 255, fontStyle: 'bold', fontSize: 9 };
+  const bodyStyles = { fontSize: 9 };
+  const altRow = { fillColor: [243, 246, 250] };
 
   doc.autoTable({
     startY: 32,
     head: [['Indicador', 'Valor']],
     body: [
-      ['Atrasos hoy', hoy.length],
-      ['Justificados hoy', justHoy],
-      ['Sin justificar hoy', hoy.length - justHoy],
-      ['Atrasos esta semana', semana.length],
-      ['Promedio diario (30 días)', prom],
-      ['Total estudiantes', students.length],
+      ['Atrasos hoy', d.hoy.length],
+      ['Justificados hoy', d.justHoy],
+      ['Sin justificar hoy', d.hoy.length - d.justHoy],
+      ['Atrasos esta semana', d.semana.length],
+      ['Promedio diario (30 días)', d.prom],
+      ['Total estudiantes', d.students.length],
     ],
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 10 },
+    headStyles: { fillColor: [26, 50, 99], textColor: 255, fontStyle: 'bold', fontSize: 10 },
     bodyStyles: { fontSize: 10 },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    alternateRowStyles: altRow,
     margin: { left: 14, right: 14 },
     tableWidth: 100,
   });
 
-  // Today's atrasos table
-  if (hoy.length > 0) {
-    const lastY = doc.lastAutoTable.finalY + 8;
+  const sectionStart = (title) => {
+    const y = doc.lastAutoTable.finalY + 8;
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text(`Atrasos de hoy — ${fechaHoy}`, 14, lastY);
+    doc.text(title, 14, y);
+    return y + 5;
+  };
 
+  if (d.hoy.length > 0) {
     doc.autoTable({
-      startY: lastY + 5,
+      startY: sectionStart(`Atrasos de hoy — ${fechaHoy}`),
       head: [['Estudiante', 'Curso', 'Hora', 'Estado', 'Motivo']],
-      body: hoy.sort((a, b) => b.hora.localeCompare(a.hora) || b.id - a.id).map(a => {
+      body: d.hoy.sort((a, b) => b.hora.localeCompare(a.hora) || b.id - a.id).map(a => {
         const st = getStudent(a.studentId);
         return [
           st ? st.nombre : '—',
@@ -1342,46 +1374,68 @@ window.exportDashboardPDF = function () {
           a.motivo || '—',
         ];
       }),
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      bodyStyles: { fontSize: 9 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      headStyles, bodyStyles, alternateRowStyles: altRow,
       margin: { left: 14, right: 14 },
     });
   }
 
-  doc.save(`panel-control-${todayStr}.pdf`);
+  doc.autoTable({
+    startY: sectionStart('Top 15 Estudiantes con más atrasos'),
+    head: [['#', 'Estudiante', 'Curso', 'Total Atrasos', 'Último Atraso']],
+    body: d.top.map((x, i) => {
+      const lastA = d.atrasos
+        .filter(a => a.studentId === x.student.id)
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+      return [i + 1, x.student.nombre, x.student.curso, x.n, lastA ? formatDate(lastA.fecha) : '—'];
+    }),
+    headStyles, bodyStyles, alternateRowStyles: altRow,
+    margin: { left: 14, right: 14 },
+  });
+
+  doc.autoTable({
+    startY: sectionStart('Cursos con más atrasos'),
+    head: [['Curso', 'Total Atrasos']],
+    body: d.cursoEntries.map(([c, n]) => [c, n]),
+    headStyles, bodyStyles, alternateRowStyles: altRow,
+    margin: { left: 14, right: 14 },
+  });
+
+  doc.autoTable({
+    startY: sectionStart(`Evolución de atrasos — ${d.rangeLabel}`),
+    head: [['Período', 'Atrasos']],
+    body: d.evolution.labels.map((l, i) => [l, d.evolution.data[i]]),
+    headStyles, bodyStyles, alternateRowStyles: altRow,
+    margin: { left: 14, right: 14 },
+  });
+
+  doc.save(`panel-control-${d.todayStr}.pdf`);
   showToast('PDF del panel generado.');
 };
 
 // ─── EXPORT: DASHBOARD EXCEL ────────────────────────────────
 window.exportDashboardExcel = function () {
-  const atrasos  = loadAtrasos();
-  const students = loadStudents();
-  const todayStr = today();
-  const hoy      = atrasos.filter(a => a.fecha === todayStr);
-  const semana   = atrasos.filter(a => a.fecha >= dateOffset(6));
-  const justHoy  = hoy.filter(a => a.justificado).length;
-
+  const d = buildDashboardExportData();
   const wb = XLSX.utils.book_new();
 
   // Hoja 1: Resumen
   const resumen = [
     ['PANEL DE CONTROL', ''],
-    ['Generado:', formatDate(todayStr)],
+    ['Generado:', formatDate(d.todayStr)],
     [''],
     ['Indicador', 'Valor'],
-    ['Atrasos hoy', hoy.length],
-    ['Justificados hoy', justHoy],
-    ['Sin justificar hoy', hoy.length - justHoy],
-    ['Atrasos esta semana', semana.length],
-    ['Total estudiantes', students.length],
+    ['Atrasos hoy', d.hoy.length],
+    ['Justificados hoy', d.justHoy],
+    ['Sin justificar hoy', d.hoy.length - d.justHoy],
+    ['Atrasos esta semana', d.semana.length],
+    ['Promedio diario (30 días)', d.prom],
+    ['Total estudiantes', d.students.length],
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), 'Resumen');
 
   // Hoja 2: Atrasos hoy
-  if (hoy.length > 0) {
+  if (d.hoy.length > 0) {
     const rows = [['Estudiante', 'Curso', 'Hora', 'Estado', 'Motivo']];
-    hoy.sort((a, b) => b.hora.localeCompare(a.hora) || b.id - a.id).forEach(a => {
+    d.hoy.sort((a, b) => b.hora.localeCompare(a.hora) || b.id - a.id).forEach(a => {
       const st = getStudent(a.studentId);
       rows.push([
         st ? st.nombre : '—',
@@ -1394,7 +1448,27 @@ window.exportDashboardExcel = function () {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Atrasos Hoy');
   }
 
-  XLSX.writeFile(wb, `panel-control-${todayStr}.xlsx`);
+  // Hoja 3: Top 15
+  const top15 = [['#', 'Estudiante', 'Curso', 'Total Atrasos', 'Último Atraso']];
+  d.top.forEach((x, i) => {
+    const lastA = d.atrasos
+      .filter(a => a.studentId === x.student.id)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+    top15.push([i + 1, x.student.nombre, x.student.curso, x.n, lastA ? formatDate(lastA.fecha) : '—']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(top15), 'Top 15 Estudiantes');
+
+  // Hoja 4: Cursos
+  const cursos = [['Curso', 'Total Atrasos']];
+  d.cursoEntries.forEach(([c, n]) => cursos.push([c, n]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cursos), 'Cursos');
+
+  // Hoja 5: Evolución
+  const evolucion = [['Período', 'Atrasos']];
+  d.evolution.labels.forEach((l, i) => evolucion.push([l, d.evolution.data[i]]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(evolucion), 'Evolución');
+
+  XLSX.writeFile(wb, `panel-control-${d.todayStr}.xlsx`);
   showToast('Excel del panel generado.');
 };
 
