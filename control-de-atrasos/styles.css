@@ -74,6 +74,10 @@ body {
 }
 
 .sidebar-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
   margin: 0.5rem 0.75rem 0.25rem;
   padding: 0.6rem 0.75rem;
   border: 1px solid rgba(255,255,255,.18);
@@ -85,6 +89,7 @@ body {
   font-weight: 600;
   transition: background .15s, border-color .15s, box-shadow .15s;
 }
+.sidebar-admin-btn svg { flex-shrink: 0; color: #93c5fd; }
 .sidebar-admin-btn:hover {
   background: rgba(255,255,255,.13);
   border-color: rgba(96,165,250,.6);
@@ -633,17 +638,53 @@ select:disabled {
 }
 
 @media (max-width: 640px) {
-  .sidebar { width: 52px; }
-  .sidebar-brand span, .sidebar-nav .nav-item span { display: none; }
-  .sidebar-brand { justify-content: center; padding: 1.25rem 0; }
+  /* Barra lateral compacta: solo íconos */
+  .sidebar { width: 54px; }
+  .sidebar-brand { justify-content: center; padding: 1.1rem 0; }
+  .sidebar-brand span, .sidebar-nav .nav-item span, .sidebar-admin-btn span { display: none; }
   .sidebar-admin-btn { margin: 0.5rem 0.5rem 0.25rem; padding: 0.6rem 0; display: flex; justify-content: center; }
-  .sidebar-admin-btn span { display: none; }
-  .main { margin-left: 52px; padding: 1rem; width: calc(100% - 52px); }
-  .stats-grid { grid-template-columns: 1fr; }
+  .sidebar-nav .nav-item { justify-content: center; padding: 0.7rem 0.4rem; }
+  .nav-item:hover { transform: none; }
+
+  .main { margin-left: 54px; padding: 1rem 0.9rem 2.25rem; width: calc(100% - 54px); }
+
+  /* Evita el zoom automático de iOS al enfocar campos */
+  input, select, textarea { font-size: 16px; }
+
+  .page-header { flex-direction: column; align-items: stretch; }
+  .page-header-left h1 { font-size: 1.3rem; }
+  .page-header > .btn { width: 100%; justify-content: center; }
+
+  .export-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .export-btns .connection-pill { grid-column: 1 / -1; justify-content: center; width: 100%; }
+  .export-btns .btn-export, .export-btns .btn-export-green, .export-btns .btn-export-blue { justify-content: center; }
+
+  .stats-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+  .stat-card { padding: 1.1rem 1rem; }
+  .stat-value { font-size: 1.75rem; }
+
   .dashboard-left { grid-template-columns: 1fr; }
+  .chart-card { min-height: 0; }
+  .chart-card canvas { min-height: 220px; }
   .form-row { grid-template-columns: 1fr; }
-  .page-header { flex-direction: column; }
-  .export-btns { width: 100%; }
+
+  .filters { flex-direction: column; align-items: stretch; }
+  .filters input, .filters select { flex: none; width: 100%; min-width: 0; }
+
+  /* Tablas → tarjetas apiladas */
+  .table-wrapper { overflow: visible; }
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table tbody { display: flex; flex-direction: column; gap: 0.7rem; }
+  .data-table tr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+  .data-table tr:hover td { background: transparent; }
+  .data-table td { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); }
+  .data-table tr td:last-child { border-bottom: none; }
+  .data-table td::before { content: attr(data-label); flex-shrink: 0; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  .data-table td[data-label="Acción"] { justify-content: flex-end; }
+  .data-table td[data-label="Acción"]::before { display: none; }
+
+  .modal { margin: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
 }
 
 /* ===== PRINT STYLES ===== */

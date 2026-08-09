@@ -423,7 +423,10 @@ function updateAccess() {
   const sidebarAdminButton = document.getElementById('btn-admin-access-sidebar');
   const label = admin ? 'Cerrar sesión' : 'Ingresar';
   if (adminButton) adminButton.textContent = label;
-  if (sidebarAdminButton) sidebarAdminButton.textContent = label;
+  if (sidebarAdminButton) {
+    const span = sidebarAdminButton.querySelector('span');
+    if (span) span.textContent = label;
+  }
 
   const newStudentBtn = document.getElementById('btn-nuevo-estudiante');
   if (newStudentBtn) newStudentBtn.style.display = admin ? '' : 'none';
@@ -770,11 +773,11 @@ function renderDashboard() {
         i === 2 ? '<span class="badge badge-rank-3">3°</span>' :
         `<span style="color:var(--text-muted);font-size:.8rem">${i + 1}°</span>`;
       return `<tr>
-        <td>${rankBadge}</td>
-        <td><strong>${x.student.nombre}</strong></td>
-        <td>${x.student.curso}</td>
-        <td><span class="badge badge-blue">${x.n}</span></td>
-        <td>${lastA ? formatDate(lastA.fecha) : '—'}</td>
+        <td data-label="#">${rankBadge}</td>
+        <td data-label="Estudiante"><strong>${x.student.nombre}</strong></td>
+        <td data-label="Curso">${x.student.curso}</td>
+        <td data-label="Total Atrasos"><span class="badge badge-blue">${x.n}</span></td>
+        <td data-label="Último Atraso">${lastA ? formatDate(lastA.fecha) : '—'}</td>
       </tr>`;
     }).join('');
   }
@@ -1054,13 +1057,13 @@ function renderHistorico() {
       ? `<button class="btn btn-icon" onclick="confirmDeleteAtraso(${idLiteral})" title="Eliminar atraso">Eliminar</button>`
       : '—';
     return `<tr>
-      <td><strong>${a.student.nombre}</strong></td>
-      <td>${a.student.curso}</td>
-      <td>${formatDate(a.fecha)}</td>
-      <td>${a.hora}</td>
-      <td>${badge}</td>
-      <td>${a.motivo || '—'}</td>
-      <td>${actions}</td>
+      <td data-label="Estudiante"><strong>${a.student.nombre}</strong></td>
+      <td data-label="Curso">${a.student.curso}</td>
+      <td data-label="Fecha">${formatDate(a.fecha)}</td>
+      <td data-label="Hora">${a.hora}</td>
+      <td data-label="Estado">${badge}</td>
+      <td data-label="Motivo">${a.motivo || '—'}</td>
+      <td data-label="Acción">${actions}</td>
     </tr>`;
   }).join('');
 }
@@ -1109,11 +1112,11 @@ function renderEstudiantes() {
     const total = atrasos.filter(a => a.studentId === s.id).length;
     const actions = '—';
     return `<tr>
-      <td><strong>${s.nombre}</strong></td>
-      <td>${s.curso}</td>
-      <td>${s.email || '—'}</td>
-      <td><span class="badge badge-blue">${total}</span></td>
-      <td style="display:flex;gap:.4rem;justify-content:flex-end">${actions}</td>
+      <td data-label="Nombre"><strong>${s.nombre}</strong></td>
+      <td data-label="Curso">${s.curso}</td>
+      <td data-label="Email">${s.email || '—'}</td>
+      <td data-label="Total Atrasos"><span class="badge badge-blue">${total}</span></td>
+      <td data-label="Acción" style="display:flex;gap:.4rem;justify-content:flex-end">${actions}</td>
     </tr>`;
   }).join('');
 }
