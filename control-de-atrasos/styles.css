@@ -237,10 +237,10 @@ body {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-.stats-grid .stat-card:nth-child(1) { --accent: #1A3263; --tint: #dbe6f3; }
-.stats-grid .stat-card:nth-child(2) { --accent: #41A67E; --tint: #d9efe5; }
-.stats-grid .stat-card:nth-child(3) { --accent: #FAB95B; --tint: #fdf0d7; }
-.stats-grid .stat-card:nth-child(4) { --accent: #296374; --tint: #d8e8ec; }
+.stats-grid .stat-card:nth-child(1) { --accent: #1A3263; --tint: #b8cff0; }
+.stats-grid .stat-card:nth-child(2) { --accent: #41A67E; --tint: #b3e8cf; }
+.stats-grid .stat-card:nth-child(3) { --accent: #FAB95B; --tint: #f8d98c; }
+.stats-grid .stat-card:nth-child(4) { --accent: #296374; --tint: #b3dce6; }
 
 .stat-card {
   position: relative;
@@ -320,10 +320,10 @@ body {
 .chart-card-tall { min-height: 420px; }
 
 /* Fondos tenues en las tarjetas del panel */
-.dashboard-left .chart-card:nth-child(1) { background: linear-gradient(160deg, #dbe6f3 0%, var(--surface) 70%); }
-.dashboard-left .chart-card:nth-child(2) { background: linear-gradient(160deg, #e8ecf5 0%, var(--surface) 70%); }
-.dashboard-left .chart-card:nth-child(3) { background: linear-gradient(160deg, #d9efe5 0%, var(--surface) 70%); }
-.dashboard-grid > .card:not(.chart-card) { background: linear-gradient(160deg, #fdf0d7 0%, var(--surface) 70%); }
+.dashboard-left .chart-card:nth-child(1) { background: linear-gradient(160deg, #c9d9f2 0%, var(--surface) 70%); }
+.dashboard-left .chart-card:nth-child(2) { background: linear-gradient(160deg, #cfddf3 0%, var(--surface) 70%); }
+.dashboard-left .chart-card:nth-child(3) { background: linear-gradient(160deg, #c2ebdc 0%, var(--surface) 70%); }
+.dashboard-grid > .card:not(.chart-card) { background: linear-gradient(160deg, #f9e2b6 0%, var(--surface) 70%); }
 
 .chart-card canvas {
   width: 100% !important;

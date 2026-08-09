@@ -812,10 +812,10 @@ function renderDashboard() {
         label: 'Atrasos',
         data: cursoData,
         backgroundColor: cursoData.map(v =>
-          v === 0 ? '#E8E2DB' : v >= 10 ? '#BF092F' : v >= 5 ? '#FA891A' : '#1A3263'
+          v === 0 ? '#E8E2DB' : '#1A3263'
         ),
         borderColor: cursoData.map(v =>
-          v === 0 ? '#d9d3c8' : v >= 10 ? '#8F0725' : v >= 5 ? '#CF4B00' : '#12233F'
+          v === 0 ? '#d9d3c8' : '#12233F'
         ),
         borderWidth: 1,
         borderRadius: 3,
@@ -868,10 +868,11 @@ const evolution = buildEvolutionSeries();
         label: 'Atrasos por día',
         data: evolution.data,
         borderColor: '#1A3263',
-        backgroundColor: 'rgba(26,50,99,.08)',
+        backgroundColor: 'rgba(26,50,99,.14)',
         tension: 0.3,
         fill: true,
-        pointRadius: 3,
+        borderWidth: 2.5,
+        pointRadius: 4,
         pointBackgroundColor: '#1A3263',
       }]
     },
