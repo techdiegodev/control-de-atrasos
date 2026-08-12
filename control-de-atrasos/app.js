@@ -118,7 +118,7 @@ async function hydrateFromSupabase() {
     }));
     const delayCandidates = (SUPABASE_TABLES.atrasos || []).map(table => ({
       table,
-      select: 'id, estudiante_id, fecha, hora, justificado, motivo',
+      select: 'id, estudiante_id, fecha, hora, justificado, motivo, registrado_por',
       orderBy: 'fecha',
       ascending: false,
     }));
@@ -152,7 +152,11 @@ async function hydrateFromSupabase() {
     }
 
     for (const candidate of delayCandidates) {
-      const result = await trySupabaseQuery(candidate.table, candidate.select, candidate.orderBy, candidate.ascending);
+      let result = await trySupabaseQuery(candidate.table, candidate.select, candidate.orderBy, candidate.ascending);
+      if (!result.ok && candidate.select.includes('registrado_por')) {
+        const selectBase = candidate.select.split(',').map(s => s.trim()).filter(s => s && s !== 'registrado_por').join(', ');
+        result = await trySupabaseQuery(candidate.table, selectBase, candidate.orderBy, candidate.ascending);
+      }
       if (result.ok) {
         atrasosData = result.data || [];
         delaysQuerySucceeded = true;
@@ -186,6 +190,7 @@ async function hydrateFromSupabase() {
       hora: pickExactValue(a, ['hora', 'time']),
       justificado: !!pickExactValue(a, ['justificado', 'justified']),
       motivo: String(pickExactValue(a, ['motivo', 'reason', 'observacion']) || '').trim(),
+      registradoPor: String(pickExactValue(a, ['registrado_por', 'registradoPor']) || '').trim(),
     }));
 
     const connectedToTables = coursesQuerySucceeded && studentsQuerySucceeded;
@@ -381,6 +386,7 @@ function showToast(msg, type = 'success') {
 let currentPage = 'dashboard';
 let currentAuthUser = null;
 let authorizedAdmin = false;
+let authorizedUser = false;
 
 document.querySelectorAll('.nav-item').forEach(link => {
   link.addEventListener('click', (e) => {
@@ -394,6 +400,10 @@ document.getElementById('btn-admin-access-sidebar').addEventListener('click', ha
 
 function isAdmin() {
   return authorizedAdmin;
+}
+
+function canRegister() {
+  return authorizedUser || authorizedAdmin;
 }
 
 function showAuthModal() {
@@ -417,7 +427,11 @@ function hidePasswordModal() {
 
 function updateAccess() {
   const admin = isAdmin();
+  const canUse = canRegister();
   document.querySelectorAll('[data-page="registrar"]').forEach(el => {
+    el.style.display = canUse ? '' : 'none';
+  });
+  document.querySelectorAll('[data-page="usuarios"]').forEach(el => {
     el.style.display = admin ? '' : 'none';
   });
   // La gestión de estudiantes sigue siendo solo local; se oculta hasta que
@@ -428,7 +442,7 @@ function updateAccess() {
 
   const adminButton = document.getElementById('btn-admin-access');
   const sidebarAdminButton = document.getElementById('btn-admin-access-sidebar');
-  const label = admin ? 'Cerrar sesión' : 'Ingresar';
+  const label = canUse ? 'Cerrar sesión' : 'Ingresar';
   if (adminButton) adminButton.textContent = label;
   if (sidebarAdminButton) {
     const span = sidebarAdminButton.querySelector('span');
@@ -443,13 +457,14 @@ function updateAccess() {
 }
 
 async function handleAdminButton() {
-  if (isAdmin()) {
+  if (isAdmin() || canRegister()) {
     await supabase.auth.signOut();
     currentAuthUser = null;
     authorizedAdmin = false;
+    authorizedUser = false;
     updateAccess();
     showToast('Sesión cerrada.');
-    if (currentPage === 'registrar' || currentPage === 'estudiantes') {
+    if (currentPage === 'registrar' || currentPage === 'estudiantes' || currentPage === 'usuarios') {
       navigateTo('dashboard');
     }
     await loadPublicDashboard();
@@ -458,24 +473,18 @@ async function handleAdminButton() {
   }
 }
 
-function clearLocalCache() {
-  usingSupabaseData = false;
-  saveCourses([]);
-  saveStudents([]);
-  saveAtrasos([]);
-}
-
 async function validateAuthorizedUser() {
   if (!supabase || !currentAuthUser) {
     authorizedAdmin = false;
+    authorizedUser = false;
     return false;
   }
 
   const { data, error } = await supabase.rpc('is_app_admin');
   authorizedAdmin = !error && data === true;
-  if (!authorizedAdmin) clearLocalCache();
+  authorizedUser = true;
   updateAccess();
-  return authorizedAdmin;
+  return authorizedUser;
 }
 
 async function initializeAuthentication() {
@@ -591,7 +600,11 @@ document.getElementById('form-auth').addEventListener('submit', async (event) =>
 });
 
 function navigateTo(page) {
-  if ((page === 'registrar' || page === 'estudiantes') && !isAdmin()) {
+  if (page === 'usuarios' && !isAdmin()) {
+    showAuthModal();
+    return;
+  }
+  if ((page === 'registrar' || page === 'estudiantes') && !canRegister()) {
     showAuthModal();
     return;
   }
@@ -609,6 +622,7 @@ function renderPage(page) {
   if (page === 'registrar')   populateCursosDropdown();
   if (page === 'historico')   renderHistorico();
   if (page === 'estudiantes') renderEstudiantes();
+  if (page === 'usuarios')    renderUsuarios();
 }
 
 // ─── DASHBOARD ──────────────────────────────────────────────
@@ -819,10 +833,10 @@ function renderDashboard() {
         label: 'Atrasos',
         data: cursoData,
         backgroundColor: cursoData.map(v =>
-          v === 0 ? '#E8E2DB' : '#1A3263'
+          v === 0 ? '#E8E2DB' : '#2A4A7E'
         ),
         borderColor: cursoData.map(v =>
-          v === 0 ? '#d9d3c8' : '#12233F'
+          v === 0 ? '#d9d3c8' : '#1D3A6B'
         ),
         borderWidth: 1,
         borderRadius: 3,
@@ -844,7 +858,7 @@ function renderDashboard() {
           display: true,
           anchor: 'end',
           align: 'end',
-          color: (ctx) => ctx.dataset.data[ctx.dataIndex] === 0 ? '#547792' : '#1A3263',
+          color: (ctx) => ctx.dataset.data[ctx.dataIndex] === 0 ? '#547792' : '#2A4A7E',
           font: { weight: 'bold', size: 11 },
           formatter: (value) => value === 0 ? '0' : value,
         },
@@ -983,7 +997,7 @@ document.getElementById('form-atraso').addEventListener('submit', async (e) => {
     const { data, error } = await supabase
       .from('atrasos')
       .insert({ estudiante_id: selectedStudentId, fecha, hora, justificado, motivo })
-      .select('id, estudiante_id, fecha, hora, justificado, motivo')
+      .select('id, estudiante_id, fecha, hora, justificado, motivo, registrado_por')
       .single();
 
     if (error) throw error;
@@ -996,6 +1010,7 @@ document.getElementById('form-atraso').addEventListener('submit', async (e) => {
       hora: data.hora,
       justificado: data.justificado,
       motivo: data.motivo || '',
+      registradoPor: data.registrado_por || (currentAuthUser ? currentAuthUser.email : ''),
     });
     saveAtrasos(atrasos);
 
@@ -1028,6 +1043,7 @@ function renderHistorico() {
   const search = document.getElementById('filter-search').value.toLowerCase();
   const fecha  = document.getElementById('filter-fecha').value;
   const curso  = document.getElementById('filter-curso').value;
+  const por    = document.getElementById('filter-por').value;
 
   // Populate curso filter
   const cursos = sortCursos(getAvailableCourseNames().filter(Boolean));
@@ -1035,6 +1051,14 @@ function renderHistorico() {
   const prevC    = fc.value;
   fc.innerHTML   = '<option value="">Todos los cursos</option>' +
     cursos.map(c => `<option value="${c}" ${prevC === c ? 'selected' : ''}>${c}</option>`).join('');
+
+  // Populate "registrado por" filter
+  const atrasosAll = loadAtrasos();
+  const registrantes = [...new Set(atrasosAll.map(a => a.registradoPor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const fp       = document.getElementById('filter-por');
+  const prevP    = fp.value;
+  fp.innerHTML   = '<option value="">Todos los que registraron</option>' +
+    registrantes.map(email => `<option value="${email}" ${prevP === email ? 'selected' : ''}>${email}</option>`).join('');
 
   const students  = loadStudents();
   const enriched  = loadAtrasos()
@@ -1044,6 +1068,7 @@ function renderHistorico() {
       if (search && !a.student.nombre.toLowerCase().includes(search)) return false;
       if (fecha && a.fecha !== fecha) return false;
       if (curso && !courseMatches(a.student.curso, curso)) return false;
+      if (por && a.registradoPor !== por) return false;
       return true;
     })
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora.localeCompare(a.hora));
@@ -1073,18 +1098,20 @@ function renderHistorico() {
       <td data-label="Hora">${a.hora}</td>
       <td data-label="Estado">${badge}</td>
       <td data-label="Motivo">${a.motivo || '—'}</td>
+      <td data-label="Registrado por">${a.registradoPor || '—'}</td>
       <td data-label="Acción">${actions}</td>
     </tr>`;
   }).join('');
 }
 
-['filter-search', 'filter-fecha', 'filter-curso'].forEach(id =>
+['filter-search', 'filter-fecha', 'filter-curso', 'filter-por'].forEach(id =>
   document.getElementById(id).addEventListener('input', renderHistorico));
 
 document.getElementById('btn-limpiar-filtros').addEventListener('click', () => {
   document.getElementById('filter-search').value = '';
   document.getElementById('filter-fecha').value  = '';
   document.getElementById('filter-curso').value  = '';
+  document.getElementById('filter-por').value    = '';
   renderHistorico();
 });
 
@@ -1189,6 +1216,121 @@ document.getElementById('form-estudiante').addEventListener('submit', (e) => {
   document.getElementById('form-estudiante-card').style.display = 'none';
   editingStudentId = null;
   renderEstudiantes();
+});
+
+// ─── USUARIOS ───────────────────────────────────────────────
+function supabaseFunctionUrl(name) {
+  return `${normalizedSupabaseUrl}/functions/v1/${name}`;
+}
+
+async function callEdgeFunction(name, payload) {
+  if (!isSupabaseEnabled() || !currentAuthUser) {
+    throw new Error('Debe iniciar sesión para realizar esta acción.');
+  }
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
+  const response = await fetch(supabaseFunctionUrl(name), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `Error en ${name}`);
+  return body;
+}
+
+async function renderUsuarios() {
+  const tbody = document.getElementById('tbody-usuarios');
+  const empty = document.getElementById('usuarios-empty');
+  tbody.innerHTML = '';
+
+  let users = [];
+  try {
+    const result = await callEdgeFunction('list-users', {});
+    users = result.users || [];
+  } catch (error) {
+    console.warn('No se pudo listar usuarios.', error);
+    empty.classList.remove('hidden');
+    empty.textContent = `No se pudo cargar la lista: ${error.message}`;
+    return;
+  }
+
+  const atrasos = loadAtrasos();
+  const countBy = {};
+  atrasos.forEach(a => {
+    if (a.registradoPor) countBy[a.registradoPor] = (countBy[a.registradoPor] || 0) + 1;
+  });
+
+  if (users.length === 0) {
+    empty.classList.remove('hidden');
+    empty.textContent = 'Sin usuarios creados todavía.';
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = users.map(u => {
+    const rol = (u.rol || '').toLowerCase() === 'admin' ? 'Administrador' : 'Registrador';
+    const total = countBy[u.email] || 0;
+    const creado = u.created_at ? formatDate(u.created_at.slice(0, 10)) : '—';
+    return `<tr>
+      <td data-label="Correo"><strong>${u.email}</strong></td>
+      <td data-label="Nombre">${u.nombre || '—'}</td>
+      <td data-label="Rol">${rol}</td>
+      <td data-label="Atrasos registrados"><span class="badge badge-blue">${total}</span></td>
+      <td data-label="Creado">${creado}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('form-usuario').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nombre = document.getElementById('usr-nombre').value.trim();
+  const email  = document.getElementById('usr-email').value.trim();
+  const pass   = document.getElementById('usr-pass').value;
+  const rol    = document.getElementById('usr-rol').value;
+
+  const submitBtn = document.getElementById('btn-crear-usuario');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creando...';
+
+  try {
+    const result = await callEdgeFunction('create-user', { email, password: pass, nombre, rol });
+    showCredentialsModal(result.email, result.password);
+    document.getElementById('form-usuario').reset();
+    await renderUsuarios();
+  } catch (error) {
+    console.error('No se pudo crear el usuario.', error);
+    showToast(error.message || 'No se pudo crear el usuario.', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Crear acceso';
+  }
+});
+
+// ─── MODAL CREDENCIALES ────────────────────────────────────
+function showCredentialsModal(email, password) {
+  document.getElementById('cred-email').value = email;
+  document.getElementById('cred-pass').value = password;
+  document.getElementById('credentials-modal-overlay').classList.remove('hidden');
+}
+
+function hideCredentialsModal() {
+  document.getElementById('credentials-modal-overlay').classList.add('hidden');
+}
+
+document.getElementById('btn-close-creds').addEventListener('click', hideCredentialsModal);
+document.getElementById('btn-copy-creds').addEventListener('click', async () => {
+  const text = `Usuario: ${document.getElementById('cred-email').value}\nContraseña: ${document.getElementById('cred-pass').value}`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Credenciales copiadas.');
+  } catch (error) {
+    const creds = `${document.getElementById('cred-email').value}:${document.getElementById('cred-pass').value}`;
+    prompt('Copie manualmente:', creds);
+  }
 });
 
 // ─── DELETE MODAL ───────────────────────────────────────────

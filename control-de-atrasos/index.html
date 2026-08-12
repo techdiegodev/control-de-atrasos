@@ -46,6 +46,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Estudiantes</span>
       </a>
+      <a href="#" class="nav-item" data-page="usuarios">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span>Usuarios</span>
+      </a>
     </nav>
   </aside>
 
@@ -286,6 +290,9 @@
           <select id="filter-curso">
             <option value="">Todos los cursos</option>
           </select>
+          <select id="filter-por">
+            <option value="">Todos los que registraron</option>
+          </select>
           <button class="btn btn-secondary" id="btn-limpiar-filtros">Limpiar</button>
         </div>
         <div class="table-wrapper">
@@ -298,6 +305,7 @@
                 <th>Hora</th>
                 <th>Estado</th>
                 <th>Motivo</th>
+                <th>Registrado por</th>
                 <th></th>
               </tr>
             </thead>
@@ -380,6 +388,67 @@
       </div>
     </div>
 
+    <!-- ===== PAGE: USUARIOS ===== -->
+    <div id="page-usuarios" class="page">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Usuarios</h1>
+          <p class="page-subtitle">Cree los accesos de quienes registrarán atrasos y vea qué usuario registró cada atraso.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title">Nuevo acceso</div>
+        <form id="form-usuario">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="usr-nombre">Nombre (opcional)</label>
+              <input type="text" id="usr-nombre" placeholder="Ej: María Pérez" />
+            </div>
+            <div class="form-group">
+              <label for="usr-rol">Rol</label>
+              <select id="usr-rol">
+                <option value="registrador">Registrador</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="usr-email">Correo (será el usuario de acceso)</label>
+              <input type="email" id="usr-email" required placeholder="ej: admin2@controlatrasos.cl" />
+            </div>
+            <div class="form-group">
+              <label for="usr-pass">Contraseña</label>
+              <input type="text" id="usr-pass" required minlength="6" placeholder="Ej: ClaveSegura1" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-crear-usuario">Crear acceso</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Usuarios con acceso</div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Correo</th>
+                <th>Nombre</th>
+                <th>Rol</th>
+                <th>Atrasos registrados</th>
+                <th>Creado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usuarios"></tbody>
+          </table>
+        </div>
+        <div id="usuarios-empty" class="empty-state hidden">Sin usuarios creados todavía.</div>
+      </div>
+    </div>
+
     <!-- MODAL CONFIRM DELETE -->
     <div id="modal-overlay" class="modal-overlay hidden">
       <div class="modal">
@@ -388,6 +457,26 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" id="modal-cancel">Cancelar</button>
           <button class="btn btn-danger" id="modal-confirm">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CREDENCIALES -->
+    <div id="credentials-modal-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Acceso creado</h3>
+        <p>Entregue estas credenciales a la persona. No volverán a mostrarse.</p>
+        <div class="form-group">
+          <label for="cred-email">Usuario (correo)</label>
+          <input type="text" id="cred-email" readonly />
+        </div>
+        <div class="form-group">
+          <label for="cred-pass">Contraseña</label>
+          <input type="text" id="cred-pass" readonly />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="btn-copy-creds">Copiar</button>
+          <button class="btn btn-primary" id="btn-close-creds">Listo</button>
         </div>
       </div>
     </div>

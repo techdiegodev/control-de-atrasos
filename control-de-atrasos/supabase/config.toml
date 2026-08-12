@@ -1,0 +1,3 @@
+# Configuración mínima para desplegar Edge Functions de Supabase.
+# Después de `supabase link`, este archivo se actualiza con tu project_ref.
+project_id = "control-de-atrasos"
