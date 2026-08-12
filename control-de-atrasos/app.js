@@ -356,6 +356,13 @@ function formatDate(iso) {
   return `${d}/${m}/${y}`;
 }
 
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function formatFechaCorta(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${parseInt(d, 10)}-${MESES_CORTOS[parseInt(m, 10) - 1] || ''}`;
+}
+
 function getStudent(id) {
   return loadStudents().find(s => s.id === id);
 }
@@ -693,7 +700,7 @@ function buildEvolutionSeries() {
   const cursor = new Date(from);
   while (cursor <= to) {
     const day = normalize(cursor);
-    labels.push(formatDate(day));
+    labels.push(formatFechaCorta(day));
     data.push(all.filter(a => a.fecha === day).length);
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -957,12 +964,10 @@ document.getElementById('form-atraso').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!selectedStudentId) { showToast('Seleccione un estudiante.', 'error'); return; }
 
-  // La fecha del registro siempre es la fecha vigente en Ecuador continental.
-  const fecha       = today();
+  const fecha       = document.getElementById('input-fecha').value;
   const hora        = document.getElementById('input-hora').value;
   const justificado = document.getElementById('input-justificado').checked;
   const motivo      = document.getElementById('input-motivo').value.trim();
-  document.getElementById('input-fecha').value = fecha;
 
   if (!fecha || !hora) { showToast('Complete fecha y hora.', 'error'); return; }
   if (!isSupabaseEnabled() || !usingSupabaseData) {
