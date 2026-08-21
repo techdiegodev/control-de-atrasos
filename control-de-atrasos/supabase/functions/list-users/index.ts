@@ -39,12 +39,23 @@ Deno.serve(async (req) => {
   const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (error) return json({ error: error.message }, 400);
 
+  // El rol vigente vive en app_user_roles (la misma fuente que consultan
+  // is_app_admin() y las políticas RLS); el user_metadata puede estar
+  // desactualizado o vacío en cuentas creadas manualmente.
+  const { data: rolesRows } = await adminClient
+    .from("app_user_roles")
+    .select("user_id, role");
+
+  const rolPorUsuario = new Map(
+    (rolesRows ?? []).map((r) => [r.user_id, r.role])
+  );
+
   const users = (data?.users || [])
     .map((u) => ({
       id: u.id,
       email: u.email,
       nombre: u.user_metadata?.nombre || "",
-      rol: u.user_metadata?.app_role || "registrador",
+      rol: rolPorUsuario.get(u.id) || "registrador",
       created_at: u.created_at,
     }))
     .sort((a, b) => (a.email || "").localeCompare(b.email || ""));
