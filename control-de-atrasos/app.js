@@ -523,7 +523,7 @@ document.getElementById('btn-auth-reset').addEventListener('click', async () => 
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.href,
+      redirectTo: window.location.origin + window.location.pathname,
     });
     if (error) throw error;
     showToast('Revise su correo para crear la contraseña.');
