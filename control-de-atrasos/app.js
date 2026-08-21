@@ -454,6 +454,18 @@ function updateAccess() {
 
   const clearBtn = document.getElementById('btn-limpiar-registros');
   if (clearBtn) clearBtn.style.display = admin ? '' : 'none';
+
+  const sessionPills = document.querySelectorAll('.session-pill');
+  if (sessionPills.length) {
+    if (canUse && currentAuthUser) {
+      const nombre = String(currentAuthUser.user_metadata?.nombre || '').trim();
+      const texto = `${nombre || currentAuthUser.email} · ${admin ? 'Administrador' : 'Registrador'}`;
+      document.querySelectorAll('.session-user-name').forEach(el => { el.textContent = texto; });
+      sessionPills.forEach(p => { p.title = texto; p.classList.remove('hidden'); });
+    } else {
+      sessionPills.forEach(p => p.classList.add('hidden'));
+    }
+  }
 }
 
 async function handleAdminButton() {
