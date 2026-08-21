@@ -1275,14 +1275,32 @@ async function renderUsuarios() {
     const rol = (u.rol || '').toLowerCase() === 'admin' ? 'Administrador' : 'Registrador';
     const total = countBy[u.email] || 0;
     const creado = u.created_at ? formatDate(u.created_at.slice(0, 10)) : '—';
+    const propio = currentAuthUser && (currentAuthUser.email || '').toLowerCase() === String(u.email || '').toLowerCase();
+    const emailLiteral = String(u.email || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const acciones = propio
+      ? '<button class="btn btn-icon" disabled title="No puede eliminar su propia cuenta">Eliminar</button>'
+      : `<button class="btn btn-icon" onclick="confirmDeleteUsuario('${u.id}', '${emailLiteral}')">Eliminar</button>`;
     return `<tr>
       <td data-label="Correo"><strong>${u.email}</strong></td>
       <td data-label="Nombre">${u.nombre || '—'}</td>
       <td data-label="Rol">${rol}</td>
       <td data-label="Atrasos registrados"><span class="badge badge-blue">${total}</span></td>
       <td data-label="Creado">${creado}</td>
+      <td data-label="Acciones">${acciones}</td>
     </tr>`;
   }).join('');
+}
+
+async function confirmDeleteUsuario(userId, email) {
+  if (!confirm(`¿Eliminar el acceso de ${email}? Ya no podrá iniciar sesión y la acción no se puede deshacer.`)) return;
+  try {
+    await callEdgeFunction('delete-user', { id: userId });
+    showToast(`Acceso de ${email} eliminado.`);
+    await renderUsuarios();
+  } catch (error) {
+    console.error('No se pudo eliminar el usuario.', error);
+    showToast(error.message || 'No se pudo eliminar el usuario.', 'error');
+  }
 }
 
 document.getElementById('form-usuario').addEventListener('submit', async (e) => {
@@ -1298,7 +1316,8 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
 
   try {
     const result = await callEdgeFunction('create-user', { email, password: pass, nombre, rol });
-    showCredentialsModal(result.email, result.password);
+    if (result.warning) showToast(result.warning, 'error');
+    showCredentialsModal(email || result.email, result.password || pass);
     document.getElementById('form-usuario').reset();
     await renderUsuarios();
   } catch (error) {
