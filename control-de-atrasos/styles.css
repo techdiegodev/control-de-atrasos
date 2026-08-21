@@ -163,6 +163,18 @@ body {
   align-items: center;
   flex-shrink: 0;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+  max-width: 640px;
+}
+
+/* Píldoras compactas: no empujan el grupo hacia abajo */
+.export-btns .connection-pill,
+.export-btns .session-pill {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .connection-pill {
