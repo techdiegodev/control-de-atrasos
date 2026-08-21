@@ -159,19 +159,25 @@ body {
 /* ===== EXPORT BUTTONS ===== */
 .export-btns {
   display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
   margin-left: auto;
-  max-width: 640px;
+  flex-shrink: 0;
+}
+
+.export-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 /* Píldoras compactas: no empujan el grupo hacia abajo */
 .export-btns .connection-pill,
 .export-btns .session-pill {
-  max-width: 320px;
+  max-width: 300px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -741,10 +747,12 @@ select:disabled {
   .page-header-left h1 { font-size: 1.3rem; }
   .page-header > .btn { width: 100%; justify-content: center; }
 
-  .export-btns { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .export-btns .connection-pill { grid-column: 1 / -1; justify-content: center; width: 100%; }
-  .export-btns .session-pill { grid-column: 1 / -1; justify-content: center; width: 100%; }
-  .export-btns .btn-export, .export-btns .btn-export-green, .export-btns .btn-export-blue, .export-btns .btn-export-red { justify-content: center; }
+  .export-btns { width: 100%; }
+  .export-row { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .export-row .connection-pill,
+  .export-row .session-pill,
+  .export-row #btn-refresh-dashboard { grid-column: 1 / -1; justify-content: center; width: 100%; }
+  .export-row .btn { width: 100%; justify-content: center; }
 
   .stats-grid { grid-template-columns: 1fr; gap: 0.75rem; }
   .stat-card { padding: 1.1rem 1rem; }
