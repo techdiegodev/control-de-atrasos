@@ -1201,7 +1201,10 @@ function renderCursos() {
   tbody.innerHTML = names.map(c => {
     const count = students.filter(s => s.curso === c).length;
     const actions = isAdmin()
-      ? `<button class="btn btn-icon btn-icon-edit" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>`
+      ? `<div style="display:flex;gap:.4rem;justify-content:flex-end">
+          <button class="btn btn-icon btn-icon-edit" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>
+          <button class="btn btn-icon" data-curso="${encodeURIComponent(c)}" onclick="confirmDeleteCurso(this)" title="Eliminar curso">🗑️</button>
+        </div>`
       : '';
     return `<tr>
       <td data-label="Curso"><strong>${c}</strong></td>
@@ -1422,6 +1425,41 @@ window.confirmDeleteStudent = function (id) {
         renderDashboard();
       } catch (err) {
         showToast(err.message || 'Error al eliminar estudiante.', 'error');
+      }
+    });
+};
+
+// ── Eliminar curso ───────────────────────────────────────────
+window.confirmDeleteCurso = function (el) {
+  const name = decodeURIComponent(el.dataset.curso || '');
+  const entry = loadCourses().find(c => c.nombre === name);
+  const id = entry ? entry.id : name;
+  const count = loadStudents().filter(s => s.curso === name).length;
+
+  openModal('Eliminar curso',
+    `¿Eliminar el curso "${name}"` +
+    (count > 0 ? ` junto a ${count} estudiante${count !== 1 ? 's' : ''}` : '') +
+    ` y sus atrasos? Esta acción no se puede deshacer.`,
+    async () => {
+      const students = loadStudents();
+      const removedIds = new Set(students.filter(s => s.curso === name).map(s => String(s.id)));
+      try {
+        if (isSupabaseEnabled() && usingSupabaseData) {
+          const result = await callEdgeFunction('manage-students', { action: 'delete-course', id });
+          if (result.error) { showToast(result.error, 'error'); return; }
+          saveStudents(result.students || []);
+          saveCourses(result.cursos || []);
+        } else {
+          saveStudents(students.filter(s => s.curso !== name));
+          saveCourses(loadCourses().filter(c => String(c.id) !== String(id)));
+        }
+        saveAtrasos(loadAtrasos().filter(a => !removedIds.has(String(a.studentId))));
+        refreshCursosDatalist();
+        showToast(`Curso "${name}" eliminado.`);
+        renderEstudiantes();
+        renderDashboard();
+      } catch (err) {
+        showToast(err.message || 'Error al eliminar el curso.', 'error');
       }
     });
 };

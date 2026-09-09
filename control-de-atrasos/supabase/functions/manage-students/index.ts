@@ -275,6 +275,38 @@ Deno.serve(async (req) => {
       return json({ success: true, students, cursos });
     }
 
+    // ── DELETE-COURSE ───────────────────────────────────────
+    if (action === "delete-course") {
+      const id = body.id;
+      if (!id) return json({ error: "Falta el id del curso" }, 400);
+
+      const { data: course, error: cErr } = await adminClient
+        .from("cursos")
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+      if (cErr) return json({ error: cErr.message }, 400);
+      if (!course) return json({ error: "El curso no existe" }, 404);
+
+      const { data: studentsInCourse } = await adminClient
+        .from("estudiantes")
+        .select("id")
+        .eq("curso_id", id);
+
+      const studentIds = (studentsInCourse || []).map((s: Record<string, unknown>) => s.id);
+      if (studentIds.length > 0) {
+        await adminClient.from("atrasos").delete().in("estudiante_id", studentIds);
+        await adminClient.from("estudiantes").delete().in("id", studentIds);
+      }
+
+      const { error } = await adminClient.from("cursos").delete().eq("id", id);
+      if (error) return json({ error: error.message }, 400);
+
+      const outStudents = await fetchStudentsNormalized(adminClient);
+      const cursos = await fetchCursosNormalized(adminClient);
+      return json({ success: true, students: outStudents, cursos });
+    }
+
     return json({ error: `Acción desconocida: ${action}` }, 400);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
