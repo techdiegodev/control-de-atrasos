@@ -434,10 +434,9 @@ function updateAccess() {
   document.querySelectorAll('[data-page="usuarios"]').forEach(el => {
     el.style.display = admin ? '' : 'none';
   });
-  // La gestión de estudiantes sigue siendo solo local; se oculta hasta que
-  // sus operaciones se sincronicen también con Supabase.
+  // La gestión de estudiantes es solo para administradores.
   document.querySelectorAll('[data-page="estudiantes"]').forEach(el => {
-    el.style.display = 'none';
+    el.style.display = admin ? '' : 'none';
   });
 
   const adminButton = document.getElementById('btn-admin-access');
@@ -612,11 +611,11 @@ document.getElementById('form-auth').addEventListener('submit', async (event) =>
 });
 
 function navigateTo(page) {
-  if (page === 'usuarios' && !isAdmin()) {
+  if ((page === 'usuarios' || page === 'estudiantes') && !isAdmin()) {
     showAuthModal();
     return;
   }
-  if ((page === 'registrar' || page === 'estudiantes') && !canRegister()) {
+  if (page === 'registrar' && !canRegister()) {
     showAuthModal();
     return;
   }
@@ -900,13 +899,13 @@ const evolution = buildEvolutionSeries();
       datasets: [{
         label: 'Atrasos por día',
         data: evolution.data,
-        borderColor: '#1A3263',
-        backgroundColor: 'rgba(26,50,99,.14)',
+        borderColor: '#2A4A7E',
+        backgroundColor: 'rgba(42,74,126,.25)',
         tension: 0.3,
         fill: true,
         borderWidth: 2.5,
         pointRadius: 4,
-        pointBackgroundColor: '#1A3263',
+        pointBackgroundColor: '#2A4A7E',
       }]
     },
     options: {
@@ -1129,8 +1128,17 @@ document.getElementById('btn-limpiar-filtros').addEventListener('click', () => {
 
 // ─── ESTUDIANTES ────────────────────────────────────────────
 let editingStudentId = null;
+let estFormMode = 'individual'; // 'individual' | 'batch'
+
+function refreshCursosDatalist() {
+  const dl = document.getElementById('cursos-list');
+  if (!dl) return;
+  const names = getAvailableCourseNames().filter(Boolean);
+  dl.innerHTML = names.map(c => `<option value="${c}">`).join('');
+}
 
 function renderEstudiantes() {
+  refreshCursosDatalist();
   const search = document.getElementById('est-search').value.toLowerCase();
   const curso  = document.getElementById('est-filter-curso').value;
 
@@ -1159,7 +1167,10 @@ function renderEstudiantes() {
   const atrasos = loadAtrasos();
   tbody.innerHTML = students.map(s => {
     const total = atrasos.filter(a => a.studentId === s.id).length;
-    const actions = '—';
+    const actions = isAdmin()
+      ? `<button class="btn btn-icon btn-icon-edit" onclick="editStudent('${s.id}')" title="Editar">✏️</button>
+         <button class="btn btn-icon" onclick="confirmDeleteStudent('${s.id}')" title="Eliminar">🗑️</button>`
+      : '—';
     return `<tr>
       <td data-label="Nombre"><strong>${s.nombre}</strong></td>
       <td data-label="Curso">${s.curso}</td>
@@ -1168,17 +1179,84 @@ function renderEstudiantes() {
       <td data-label="Acción" style="display:flex;gap:.4rem;justify-content:flex-end">${actions}</td>
     </tr>`;
   }).join('');
+
+  renderCursos();
+}
+
+function renderCursos() {
+  const tbody = document.getElementById('tbody-cursos');
+  const empty = document.getElementById('cursos-empty');
+  if (!tbody) return;
+
+  const students = loadStudents();
+  const names = sortCursos(getAvailableCourseNames().filter(Boolean));
+
+  if (names.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  tbody.innerHTML = names.map(c => {
+    const count = students.filter(s => s.curso === c).length;
+    const actions = isAdmin()
+      ? `<button class="btn btn-icon btn-icon-edit" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>`
+      : '';
+    return `<tr>
+      <td data-label="Curso"><strong>${c}</strong></td>
+      <td data-label="Estudiantes"><span class="badge badge-blue">${count}</span></td>
+      <td data-label="Acción" style="text-align:right">${actions}</td>
+    </tr>`;
+  }).join('');
 }
 
 ['est-search', 'est-filter-curso'].forEach(id =>
   document.getElementById(id).addEventListener('input', renderEstudiantes));
 
+// ── Toggle Individual / Lote ─────────────────────────────────
+function setEstFormMode(mode) {
+  estFormMode = mode === 'batch' ? 'batch' : 'individual';
+  document.querySelectorAll('#est-mode-toggle .btn-mode').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === estFormMode));
+  document.getElementById('fields-individual').style.display = estFormMode === 'individual' ? '' : 'none';
+  document.getElementById('fields-batch').style.display = estFormMode === 'batch' ? '' : 'none';
+
+  const individualRequired = estFormMode === 'individual';
+  document.getElementById('est-nombre').required = individualRequired;
+  document.getElementById('est-curso').required = individualRequired;
+  document.getElementById('est-batch-curso').required = !individualRequired;
+  document.getElementById('est-batch-nombres').required = !individualRequired;
+
+  if (estFormMode === 'batch' && !editingStudentId) {
+    document.getElementById('form-estudiante-title').textContent = 'Curso Completo';
+    document.getElementById('btn-guardar-estudiante').textContent = 'Crear curso';
+  } else {
+    document.getElementById('form-estudiante-title').textContent = editingStudentId ? 'Editar Estudiante' : 'Nuevo Estudiante';
+    document.getElementById('btn-guardar-estudiante').textContent = editingStudentId ? 'Actualizar' : 'Guardar';
+  }
+}
+
+document.getElementById('est-mode-toggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-mode');
+  if (!btn || btn.classList.contains('active')) return;
+  setEstFormMode(btn.dataset.mode);
+});
+
+// Contador de líneas del textarea batch
+document.getElementById('est-batch-nombres').addEventListener('input', (e) => {
+  const lines = e.target.value.split('\n').map(l => l.trim()).filter(Boolean);
+  document.getElementById('est-batch-count').textContent = `${lines.length} estudiante${lines.length !== 1 ? 's' : ''} detectado${lines.length !== 1 ? 's' : ''}`;
+});
+
+// ── Nuevo Estudiante (botón principal) ───────────────────────
 document.getElementById('btn-nuevo-estudiante').addEventListener('click', () => {
   editingStudentId = null;
   document.getElementById('form-estudiante').reset();
   document.getElementById('est-id').value = '';
-  document.getElementById('form-estudiante-title').textContent = 'Nuevo Estudiante';
-  document.getElementById('btn-guardar-estudiante').textContent = 'Guardar';
+  setEstFormMode('individual');
+  document.getElementById('est-mode-toggle').style.display = '';
+  document.getElementById('est-batch-count').textContent = '';
   document.getElementById('form-estudiante-card').style.display = 'block';
   document.getElementById('form-estudiante-card').scrollIntoView({ behavior: 'smooth' });
 });
@@ -1188,46 +1266,229 @@ document.getElementById('btn-cancelar-estudiante').addEventListener('click', () 
   editingStudentId = null;
 });
 
+// ── Editar estudiante ────────────────────────────────────────
 window.editStudent = function (id) {
-  const s = loadStudents().find(x => x.id === id);
+  const s = loadStudents().find(x => String(x.id) === String(id));
   if (!s) return;
   editingStudentId = id;
-  document.getElementById('est-id').value     = id;
+  document.getElementById('est-id').value = id;
   document.getElementById('est-nombre').value = s.nombre;
-  document.getElementById('est-curso').value  = s.curso;
-  document.getElementById('est-email').value  = s.email || '';
-  document.getElementById('form-estudiante-title').textContent = 'Editar Estudiante';
-  document.getElementById('btn-guardar-estudiante').textContent = 'Actualizar';
+  document.getElementById('est-curso').value = s.curso;
+  document.getElementById('est-email').value = s.email || '';
+  setEstFormMode('individual');
+  document.getElementById('est-mode-toggle').style.display = 'none';
   document.getElementById('form-estudiante-card').style.display = 'block';
   document.getElementById('form-estudiante-card').scrollIntoView({ behavior: 'smooth' });
 };
 
-document.getElementById('form-estudiante').addEventListener('submit', (e) => {
+// ── Submit del formulario ────────────────────────────────────
+document.getElementById('form-estudiante').addEventListener('submit', async (e) => {
   e.preventDefault();
+
+  if (estFormMode === 'batch') return handleBatchSubmit();
+  return handleIndividualSubmit();
+});
+
+async function handleIndividualSubmit() {
   const nombre = document.getElementById('est-nombre').value.trim();
   const curso  = document.getElementById('est-curso').value.trim();
   const email  = document.getElementById('est-email').value.trim();
-
   if (!nombre || !curso) { showToast('Complete los campos obligatorios.', 'error'); return; }
 
-  const students = loadStudents();
-  const existing = students.find(s => s.nombre === nombre && s.curso === curso && s.id !== editingStudentId);
-  if (existing) { showToast('Ya existe un estudiante con ese nombre en este curso.', 'error'); return; }
-
-  if (editingStudentId) {
-    const idx = students.findIndex(s => s.id === editingStudentId);
-    if (idx >= 0) students[idx] = { ...students[idx], nombre, curso, email };
-    saveStudents(students);
-    showToast('Estudiante actualizado.');
+  if (isSupabaseEnabled() && usingSupabaseData) {
+    try {
+      const payload = editingStudentId
+        ? { action: 'update', id: editingStudentId, nombre, curso, email }
+        : { action: 'create', nombre, curso, email };
+      const result = await callEdgeFunction('manage-students', payload);
+      if (result.error) { showToast(result.error, 'error'); return; }
+      saveStudents(result.students || []);
+      saveCourses(result.cursos || []);
+      refreshCursosDatalist();
+      showToast(editingStudentId ? 'Estudiante actualizado.' : 'Estudiante agregado.');
+    } catch (err) {
+      showToast(err.message || 'Error al guardar estudiante.', 'error');
+      return;
+    }
   } else {
-    students.push({ id: nextId(LS_SEQ_S), nombre, curso, email });
-    saveStudents(students);
-    showToast('Estudiante agregado.');
+    const students = loadStudents();
+    const existing = students.find(s => s.nombre === nombre && s.curso === curso && s.id !== editingStudentId);
+    if (existing) { showToast('Ya existe un estudiante con ese nombre en este curso.', 'error'); return; }
+    if (editingStudentId) {
+      const idx = students.findIndex(s => s.id === editingStudentId);
+      if (idx >= 0) students[idx] = { ...students[idx], nombre, curso, email };
+      saveStudents(students);
+      showToast('Estudiante actualizado.');
+    } else {
+      students.push({ id: nextId(LS_SEQ_S), nombre, curso, email });
+      saveStudents(students);
+      showToast('Estudiante agregado.');
+    }
   }
 
   document.getElementById('form-estudiante-card').style.display = 'none';
   editingStudentId = null;
   renderEstudiantes();
+  renderDashboard();
+}
+
+async function handleBatchSubmit() {
+  const curso = document.getElementById('est-batch-curso').value.trim();
+  const raw = document.getElementById('est-batch-nombres').value;
+  if (!curso) { showToast('Ingrese el nombre del curso.', 'error'); return; }
+
+  const names = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (names.length === 0) { showToast('Ingrese al menos un nombre.', 'error'); return; }
+
+  // Vista previa antes de crear
+  const uniqueNames = [...new Set(names)];
+  const dupCount = names.length - uniqueNames.length;
+  let msg = `Se creará el curso "${curso}" con ${uniqueNames.length} estudiante${uniqueNames.length !== 1 ? 's' : ''}.`;
+  if (dupCount > 0) msg += `\n\n${dupCount} nombre${dupCount !== 1 ? 's' : ''} duplicado${dupCount !== 1 ? 's' : ''} se omitirá${dupCount !== 1 ? 'n' : ''}.`;
+  msg += '\n\n¿Continuar?';
+
+  openModal('Crear curso completo', msg, async () => {
+    if (isSupabaseEnabled() && usingSupabaseData) {
+      try {
+        const result = await callEdgeFunction('manage-students', {
+          action: 'create-course',
+          curso,
+          estudiantes: names,
+        });
+        if (result.error) { showToast(result.error, 'error'); return; }
+        saveStudents(result.students || []);
+        saveCourses(result.cursos || []);
+        refreshCursosDatalist();
+        const parts = [`Curso "${curso}" creado.`];
+        if (result.created > 0) parts.push(`${result.created} estudiante${result.created !== 1 ? 's' : ''} creado${result.created !== 1 ? 's' : ''}.`);
+        if (result.skipped > 0) parts.push(`${result.skipped} saltado${result.skipped !== 1 ? 's' : ''}.`);
+        if (result.errors?.length) parts.push(`Detalles: ${result.errors.join('; ')}`);
+        showToast(parts.join(' '), result.errors?.length ? 'warning' : 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al crear el curso.', 'error');
+        return;
+      }
+    } else {
+      const students = loadStudents();
+      const existingCourses = loadCourses();
+      let cursoEntry = existingCourses.find(c => c.nombre === curso);
+      if (!cursoEntry) {
+        cursoEntry = { id: nextId('ca_seq_c'), nombre: curso };
+        existingCourses.push(cursoEntry);
+        saveCourses(existingCourses);
+      }
+      const seen = new Set();
+      let created = 0;
+      for (const name of uniqueNames) {
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dup = students.find(s => s.nombre === name && s.curso === curso);
+        if (dup) continue;
+        students.push({ id: nextId(LS_SEQ_S), nombre: name, curso, email: '' });
+        created++;
+      }
+      saveStudents(students);
+      refreshCursosDatalist();
+      showToast(`Curso "${curso}" creado con ${created} estudiante${created !== 1 ? 's' : ''}.`);
+    }
+
+    document.getElementById('form-estudiante-card').style.display = 'none';
+    editingStudentId = null;
+    renderEstudiantes();
+    renderDashboard();
+  }, 'Crear curso');
+}
+
+// ── Eliminar estudiante ──────────────────────────────────────
+window.confirmDeleteStudent = function (id) {
+  const st = loadStudents().find(s => String(s.id) === String(id));
+  const name = st ? st.nombre : 'este estudiante';
+  openModal('Eliminar estudiante',
+    `¿Eliminar a ${name}? También se eliminarán sus atrasos.`,
+    async () => {
+      try {
+        if (isSupabaseEnabled() && usingSupabaseData) {
+          const result = await callEdgeFunction('manage-students', { action: 'delete', id });
+          if (result.error) { showToast(result.error, 'error'); return; }
+          saveStudents(result.students || []);
+          saveCourses(result.cursos || []);
+        } else {
+          saveStudents(loadStudents().filter(s => String(s.id) !== String(id)));
+          saveAtrasos(loadAtrasos().filter(a => String(a.studentId) !== String(id)));
+        }
+        showToast('Estudiante eliminado.');
+        renderEstudiantes();
+        renderDashboard();
+      } catch (err) {
+        showToast(err.message || 'Error al eliminar estudiante.', 'error');
+      }
+    });
+};
+
+// ── Renombrar curso ──────────────────────────────────────────
+let pendingRenameCurso = null;
+
+window.openRenameCurso = function (el) {
+  const name = decodeURIComponent(el.dataset.curso || '');
+  const entry = loadCourses().find(c => c.nombre === name);
+  pendingRenameCurso = { name, id: entry ? entry.id : name };
+  document.getElementById('rename-curso-input').value = name;
+  document.getElementById('rename-modal-overlay').classList.remove('hidden');
+  document.getElementById('rename-curso-input').focus();
+  document.getElementById('rename-curso-input').select();
+};
+
+function closeRenameModal() {
+  document.getElementById('rename-modal-overlay').classList.add('hidden');
+  pendingRenameCurso = null;
+}
+
+document.getElementById('rename-modal-cancel').addEventListener('click', closeRenameModal);
+document.getElementById('rename-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('rename-modal-overlay')) closeRenameModal();
+});
+document.getElementById('rename-curso-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('rename-modal-confirm').click();
+  }
+});
+
+document.getElementById('rename-modal-confirm').addEventListener('click', async () => {
+  if (!pendingRenameCurso) return;
+  const { name: oldName, id } = pendingRenameCurso;
+  const nuevo = document.getElementById('rename-curso-input').value.trim();
+  closeRenameModal();
+
+  if (!nuevo) { showToast('Ingrese el nuevo nombre del curso.', 'error'); return; }
+  if (nuevo.toLowerCase() === oldName.toLowerCase()) return;
+
+  if (isSupabaseEnabled() && usingSupabaseData) {
+    try {
+      const result = await callEdgeFunction('manage-students', { action: 'rename-course', id, nuevoNombre: nuevo });
+      if (result.error) { showToast(result.error, 'error'); return; }
+      saveStudents(result.students || []);
+      saveCourses(result.cursos || []);
+      showToast(`Curso renombrado a "${nuevo}".`);
+    } catch (err) {
+      showToast(err.message || 'Error al renombrar el curso.', 'error');
+      return;
+    }
+  } else {
+    const courses = loadCourses();
+    const dup = courses.some(c => c.nombre.toLowerCase() === nuevo.toLowerCase() && String(c.id) !== String(id));
+    if (dup) { showToast(`Ya existe un curso llamado "${nuevo}".`, 'error'); return; }
+    const target = courses.find(c => String(c.id) === String(id));
+    if (target) target.nombre = nuevo;
+    saveCourses(courses);
+    saveStudents(loadStudents().map(s => s.curso === oldName ? { ...s, curso: nuevo } : s));
+    showToast(`Curso renombrado a "${nuevo}".`);
+  }
+
+  renderCursos();
+  renderEstudiantes();
+  renderDashboard();
 });
 
 // ─── USUARIOS ───────────────────────────────────────────────
@@ -1367,9 +1628,11 @@ document.getElementById('btn-copy-creds').addEventListener('click', async () => 
 // ─── DELETE MODAL ───────────────────────────────────────────
 let pendingDelete = null;
 
-function openModal(title, msg, onConfirm) {
+function openModal(title, msg, onConfirm, confirmLabel = 'Eliminar') {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-msg').textContent   = msg;
+  const btn = document.getElementById('modal-confirm');
+  if (btn) btn.textContent = confirmLabel;
   document.getElementById('modal-overlay').classList.remove('hidden');
   pendingDelete = onConfirm;
 }
@@ -1442,18 +1705,6 @@ window.clearAllAtrasos = function () {
 };
 
 document.getElementById('btn-limpiar-registros').addEventListener('click', clearAllAtrasos);
-
-window.confirmDeleteStudent = function (id) {
-  const st = getStudent(id);
-  openModal('Eliminar estudiante',
-    `¿Eliminar a ${st ? st.nombre : 'este estudiante'}? También se eliminarán sus atrasos.`,
-    () => {
-      saveStudents(loadStudents().filter(s => s.id !== id));
-      saveAtrasos(loadAtrasos().filter(a => a.studentId !== id));
-      showToast('Estudiante eliminado.');
-      renderEstudiantes();
-    });
-};
 
 // ─── EXPORT: DATOS DEL PANEL (compartidos) ──────────────────
 function buildDashboardExportData() {

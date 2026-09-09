@@ -340,35 +340,49 @@
 
       <div class="card" id="form-estudiante-card" style="display:none;margin-bottom:1.5rem">
         <div class="card-title" id="form-estudiante-title">Nuevo Estudiante</div>
+
+        <div class="mode-toggle" id="est-mode-toggle">
+          <button type="button" class="btn btn-secondary btn-mode active" data-mode="individual">Individual</button>
+          <button type="button" class="btn btn-secondary btn-mode" data-mode="batch">Curso completo</button>
+        </div>
+
         <form id="form-estudiante">
           <input type="hidden" id="est-id" />
-          <div class="form-row">
-            <div class="form-group">
-              <label for="est-nombre">Nombre completo</label>
-              <input type="text" id="est-nombre" required placeholder="Ej: Juan Pérez González" />
+
+          <!-- Modo individual -->
+          <div id="fields-individual">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="est-nombre">Nombre completo</label>
+                <input type="text" id="est-nombre" required placeholder="Ej: Juan Pérez González" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="est-curso">Curso</label>
+                <input type="text" id="est-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
+                <datalist id="cursos-list"></datalist>
+              </div>
+              <div class="form-group">
+                <label for="est-email">Email (opcional)</label>
+                <input type="email" id="est-email" placeholder="alumno@colegio.cl" />
+              </div>
             </div>
           </div>
-          <div class="form-row">
+
+          <!-- Modo lote -->
+          <div id="fields-batch" style="display:none">
             <div class="form-group">
-              <label for="est-curso">Curso</label>
-              <input type="text" id="est-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
-              <datalist id="cursos-list">
-                <option value="8 A"/><option value="8 B"/><option value="8 C"/>
-                <option value="9 A"/><option value="9 B"/><option value="9 C"/>
-                <option value="10 A"/><option value="10 B"/><option value="10 C"/>
-                <option value="1 Hosteleria A"/><option value="1 Hosteleria B"/>
-                <option value="1 Ciencias"/><option value="1 Gestión"/>
-                <option value="2 Ciencias A"/><option value="2 Ciencias B"/>
-                <option value="2 Servicios"/><option value="2 Gestión"/>
-                <option value="3 Ciencias A"/><option value="3 Ciencias B"/>
-                <option value="3 Servicios"/><option value="3 Gestión"/>
-              </datalist>
+              <label for="est-batch-curso">Nombre del curso</label>
+              <input type="text" id="est-batch-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
             </div>
             <div class="form-group">
-              <label for="est-email">Email (opcional)</label>
-              <input type="email" id="est-email" placeholder="alumno@colegio.cl" />
+              <label for="est-batch-nombres">Estudiantes (un nombre por línea)</label>
+              <textarea id="est-batch-nombres" rows="8" required placeholder="Ana Pérez González&#10;Luis López Soto&#10;María García Muñoz&#10;..."></textarea>
+              <small class="text-muted" id="est-batch-count"></small>
             </div>
           </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" id="btn-cancelar-estudiante">Cancelar</button>
             <button type="submit" class="btn btn-primary" id="btn-guardar-estudiante">Guardar</button>
@@ -398,6 +412,24 @@
           </table>
         </div>
         <div id="estudiantes-empty" class="empty-state hidden">No hay estudiantes registrados.</div>
+      </div>
+
+      <div class="card" id="cursos-card">
+        <div class="card-title">Cursos</div>
+        <p class="page-subtitle" style="margin-top:.2rem">Renombre un curso existente para no duplicarlo al corregir su nombre.</p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Curso</th>
+                <th>Estudiantes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-cursos"></tbody>
+          </table>
+        </div>
+        <div id="cursos-empty" class="empty-state hidden">Sin cursos todavía.</div>
       </div>
     </div>
 
@@ -471,6 +503,21 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" id="modal-cancel">Cancelar</button>
           <button class="btn btn-danger" id="modal-confirm">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL RENOMBRAR CURSO -->
+    <div id="rename-modal-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Renombrar curso</h3>
+        <div class="form-group">
+          <label for="rename-curso-input">Nuevo nombre del curso</label>
+          <input type="text" id="rename-curso-input" placeholder="Ej: 3° Medio A" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="rename-modal-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="rename-modal-confirm">Renombrar</button>
         </div>
       </div>
     </div>
