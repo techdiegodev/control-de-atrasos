@@ -1184,7 +1184,7 @@ function renderEstudiantes() {
 }
 
 function renderCursos() {
-  const tbody = document.getElementById('tbody-cursos');
+  const tbody = document.getElementById('cursos-list-body');
   const empty = document.getElementById('cursos-empty');
   if (!tbody) return;
 
@@ -1201,16 +1201,16 @@ function renderCursos() {
   tbody.innerHTML = names.map(c => {
     const count = students.filter(s => s.curso === c).length;
     const actions = isAdmin()
-      ? `<div style="display:flex;gap:.4rem;justify-content:flex-end">
-          <button class="btn btn-icon btn-icon-edit" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>
+      ? `<div class="cursos-actions">
+          <button class="btn btn-icon" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>
           <button class="btn btn-icon" data-curso="${encodeURIComponent(c)}" onclick="confirmDeleteCurso(this)" title="Eliminar curso">🗑️</button>
         </div>`
       : '';
-    return `<tr>
-      <td data-label="Curso"><strong>${c}</strong></td>
-      <td data-label="Estudiantes"><span class="badge badge-blue">${count}</span></td>
-      <td data-label="Acción" style="text-align:right">${actions}</td>
-    </tr>`;
+    return `<div class="cursos-row">
+      <span class="cursos-nombre" title="${c}">${c}</span>
+      <span class="badge badge-blue cursos-count">${count}</span>
+      ${actions}
+    </div>`;
   }).join('');
 }
 

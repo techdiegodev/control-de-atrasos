@@ -390,46 +390,36 @@
         </form>
       </div>
 
-      <div class="card">
-        <div class="filters">
-          <input type="text" id="est-search" placeholder="Buscar por nombre..." />
-          <select id="est-filter-curso">
-            <option value="">Todos los cursos</option>
-          </select>
+      <div class="estudiantes-layout">
+        <div class="card estudiantes-table-card">
+          <div class="filters">
+            <input type="text" id="est-search" placeholder="Buscar por nombre..." />
+            <select id="est-filter-curso">
+              <option value="">Todos los cursos</option>
+            </select>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Curso</th>
+                  <th>Email</th>
+                  <th>Total Atrasos</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-estudiantes"></tbody>
+            </table>
+          </div>
+          <div id="estudiantes-empty" class="empty-state hidden">No hay estudiantes registrados.</div>
         </div>
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Curso</th>
-                <th>Email</th>
-                <th>Total Atrasos</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tbody-estudiantes"></tbody>
-          </table>
-        </div>
-        <div id="estudiantes-empty" class="empty-state hidden">No hay estudiantes registrados.</div>
-      </div>
 
-      <div class="card" id="cursos-card">
-        <div class="card-title">Cursos</div>
-        <p class="page-subtitle" style="margin-top:.2rem">Renombre un curso existente para no duplicarlo al corregir su nombre.</p>
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Curso</th>
-                <th>Estudiantes</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tbody-cursos"></tbody>
-          </table>
+        <div class="card" id="cursos-card">
+          <div class="card-title">Cursos</div>
+          <div id="cursos-list-body"></div>
+          <div id="cursos-empty" class="empty-state hidden">Sin cursos todavía.</div>
         </div>
-        <div id="cursos-empty" class="empty-state hidden">Sin cursos todavía.</div>
       </div>
     </div>
 

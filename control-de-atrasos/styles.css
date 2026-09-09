@@ -823,6 +823,48 @@ select:disabled {
 }
 .text-muted { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.3rem; display: block; }
 
+/* ===== ESTUDIANTES LAYOUT (tabla + cursos al costado) ===== */
+.estudiantes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 1.25rem;
+  align-items: start;
+}
+.estudiantes-table-card { min-width: 0; }
+
+#cursos-card {
+  position: sticky;
+  top: 1rem;
+  padding: 1rem 0.95rem;
+}
+#cursos-card .card-title { font-size: 1rem; margin-bottom: 0.7rem; }
+
+.cursos-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.15rem;
+  border-bottom: 1px solid var(--border);
+}
+.cursos-row:last-child { border-bottom: none; }
+.cursos-nombre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cursos-count { flex-shrink: 0; font-size: 0.75rem; padding: 0.15rem 0.55rem; }
+.cursos-actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
+.cursos-actions .btn-icon { padding: 0.15rem 0.42rem; font-size: 0.8rem; }
+
+@media (max-width: 1100px) {
+  .estudiantes-layout { grid-template-columns: 1fr; }
+  #cursos-card { position: static; }
+}
+
 /* ===== PRINT STYLES ===== */
 @media print {
   .sidebar, .export-btns, .btn, .nav-item, .connection-pill { display: none !important; }
