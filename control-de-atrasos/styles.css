@@ -833,11 +833,15 @@ select:disabled {
 .estudiantes-table-card { min-width: 0; }
 
 #cursos-card {
-  position: sticky;
-  top: 1rem;
   padding: 1rem 0.95rem;
+  overflow: hidden;
 }
 #cursos-card .card-title { font-size: 1rem; margin-bottom: 0.7rem; }
+#cursos-list-body {
+  max-height: calc(100vh - 8.5rem);
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
 
 .cursos-row {
   display: flex;
@@ -862,7 +866,7 @@ select:disabled {
 
 @media (max-width: 1100px) {
   .estudiantes-layout { grid-template-columns: 1fr; }
-  #cursos-card { position: static; }
+  #cursos-list-body { max-height: 300px; }
 }
 
 /* ===== PRINT STYLES ===== */
