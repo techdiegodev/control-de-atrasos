@@ -113,6 +113,11 @@
         <div class="page-header-left">
           <h1>Panel de Control</h1>
           <p class="page-subtitle">Resumen del estado de atrasos del establecimiento.</p>
+          <div class="nivel-switcher" id="dashboard-nivel-switcher" role="tablist" aria-label="Nivel educativo">
+            <button class="btn btn-chip active" data-nivel="todo">Todo</button>
+            <button class="btn btn-chip" data-nivel="colegio">Colegio</button>
+            <button class="btn btn-chip" data-nivel="escuela">Escuela</button>
+          </div>
         </div>
         <div class="export-btns">
           <div class="export-row">
@@ -141,12 +146,6 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <div class="nivel-switcher" id="dashboard-nivel-switcher" role="tablist" aria-label="Nivel educativo">
-        <button class="btn btn-chip active" data-nivel="todo">Todo</button>
-        <button class="btn btn-chip" data-nivel="colegio">Colegio</button>
-        <button class="btn btn-chip" data-nivel="escuela">Escuela</button>
       </div>
 
       <div class="stats-grid">
