@@ -143,6 +143,12 @@
         </div>
       </div>
 
+      <div class="nivel-switcher" id="dashboard-nivel-switcher" role="tablist" aria-label="Nivel educativo">
+        <button class="btn btn-chip active" data-nivel="todo">Todo</button>
+        <button class="btn btn-chip" data-nivel="colegio">Colegio</button>
+        <button class="btn btn-chip" data-nivel="escuela">Escuela</button>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">
@@ -357,11 +363,18 @@
                 <input type="text" id="est-nombre" required placeholder="Ej: Juan Pérez González" />
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-row form-row-3">
               <div class="form-group">
                 <label for="est-curso">Curso</label>
                 <input type="text" id="est-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
                 <datalist id="cursos-list"></datalist>
+              </div>
+              <div class="form-group">
+                <label for="est-nivel">Nivel</label>
+                <select id="est-nivel">
+                  <option value="colegio">Colegio</option>
+                  <option value="escuela">Escuela</option>
+                </select>
               </div>
               <div class="form-group">
                 <label for="est-email">Email (opcional)</label>
@@ -372,9 +385,18 @@
 
           <!-- Modo lote -->
           <div id="fields-batch" style="display:none">
-            <div class="form-group">
-              <label for="est-batch-curso">Nombre del curso</label>
-              <input type="text" id="est-batch-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
+            <div class="form-row">
+              <div class="form-group">
+                <label for="est-batch-curso">Nombre del curso</label>
+                <input type="text" id="est-batch-curso" required placeholder="Ej: 3° Medio A" list="cursos-list" />
+              </div>
+              <div class="form-group">
+                <label for="est-batch-nivel">Nivel</label>
+                <select id="est-batch-nivel">
+                  <option value="colegio">Colegio</option>
+                  <option value="escuela">Escuela</option>
+                </select>
+              </div>
             </div>
             <div class="form-group">
               <label for="est-batch-nombres">Estudiantes (un nombre por línea)</label>

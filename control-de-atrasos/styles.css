@@ -411,6 +411,23 @@ body {
   margin-bottom: 0.75rem;
 }
 
+/* ===== NIVEL SWITCHER (Panel) ===== */
+.nivel-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.nivel-switcher .btn-chip {
+  font-size: 0.82rem;
+  padding: 0.4rem 1rem;
+}
+.nivel-switcher .btn-chip[data-nivel="escuela"].active {
+  background: linear-gradient(180deg, #b65d00, #934707);
+  border-color: #b65d00;
+}
+
 .btn-chip {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
@@ -480,10 +497,13 @@ body {
 .badge-rank-1 { background: #fbe9b8; color: #8a5b00; }
 .badge-rank-2 { background: #eef2f8; color: #547792; }
 .badge-rank-3 { background: #fdebd9; color: #b65d00; }
+.badge-nivel-colegio { background: #dbe6f3; color: #1A3263; }
+.badge-nivel-escuela { background: #fdebd9; color: #b65d00; }
 
 /* ===== FORMS ===== */
 .form-group { margin-bottom: 1.1rem; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
 
 label {
   display: block;

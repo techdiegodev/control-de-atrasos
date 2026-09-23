@@ -106,7 +106,7 @@ async function hydrateFromSupabase() {
   try {
     const courseCandidates = (SUPABASE_TABLES.cursos || []).map(table => ({
       table,
-      select: 'id, nombre',
+      select: 'id, nombre, nivel',
       orderBy: 'nombre',
       ascending: true,
     }));
@@ -132,7 +132,12 @@ async function hydrateFromSupabase() {
     const supabaseErrors = [];
 
     for (const candidate of courseCandidates) {
-      const result = await trySupabaseQuery(candidate.table, candidate.select, candidate.orderBy, candidate.ascending);
+      let result = await trySupabaseQuery(candidate.table, candidate.select, candidate.orderBy, candidate.ascending);
+      // Si la columna "nivel" aún no existe, se reintenta sin ella.
+      if (!result.ok && candidate.select.includes('nivel')) {
+        const selectBase = candidate.select.split(',').map(s => s.trim()).filter(s => s && s !== 'nivel').join(', ');
+        result = await trySupabaseQuery(candidate.table, selectBase, candidate.orderBy, candidate.ascending);
+      }
       if (result.ok) {
         cursosData = result.data || [];
         coursesQuerySucceeded = true;
@@ -165,10 +170,15 @@ async function hydrateFromSupabase() {
       supabaseErrors.push({ kind: 'atrasos', table: result.table, error: result.error });
     }
 
-    const cursos = (cursosData || []).map(c => ({
-      id: pickExactValue(c, ['id', 'ID']),
-      nombre: String(pickExactValue(c, ['nombre', 'name', 'curso', 'title']) || '').trim(),
-    }));
+    const cursos = (cursosData || []).map(c => {
+      const nombre = String(pickExactValue(c, ['nombre', 'name', 'curso', 'title']) || '').trim();
+      const nivelStored = String(pickExactValue(c, ['nivel']) || '').trim();
+      return {
+        id: pickExactValue(c, ['id', 'ID']),
+        nombre,
+        nivel: (nivelStored === 'colegio' || nivelStored === 'escuela') ? nivelStored : getNivelCursoFromName(nombre),
+      };
+    });
 
     const courseById = Object.fromEntries(cursos.map(c => [String(c.id), c.nombre]));
 
@@ -227,8 +237,13 @@ function nextId(key) {
   return n;
 }
 
-// ─── CURSOS DEL ESTABLECIMIENTO ──────────────────────────────
-const CURSOS_ORDENADOS = [
+// ─── NIVELES Y CURSOS DEL ESTABLECIMIENTO ────────────────────
+const NIVELES = [
+  { id: 'colegio', label: 'Colegio' },
+  { id: 'escuela', label: 'Escuela' },
+];
+
+const CURSOS_ORDENADOS_COLEGIO = [
   '8º A','8º B','8º C',
   '9º A','9º B','9º C',
   '10º A','10º B','10º C',
@@ -238,6 +253,34 @@ const CURSOS_ORDENADOS = [
   '3º Ciencias A','3º Ciencias B','3º Servicios','3º Gestión',
 ];
 
+const CURSOS_ORDENADOS_ESCUELA = [
+  'Inicial 3 años','Inicial 4 años A','Inicial 4 años B',
+  '1º A','1º B','2º A','2º B','3º A','3º B',
+  '4º A','4º B','5º A','5º B','6º A','6º B','7º A','7º B',
+];
+
+// Alias de compatibilidad: antes la única lista ordenada era la del Colegio.
+const CURSOS_ORDENADOS = CURSOS_ORDENADOS_COLEGIO;
+
+function getNivelCursoFromName(nombre) {
+  const n = String(nombre || '').trim();
+  if (CURSOS_ORDENADOS_ESCUELA.indexOf(n) !== -1) return 'escuela';
+  return 'colegio';
+}
+
+function getCursoNivel(nombre) {
+  const n = String(nombre || '').trim();
+  const entry = loadCourses().find(c => c.nombre === n);
+  if (entry && (entry.nivel === 'colegio' || entry.nivel === 'escuela')) return entry.nivel;
+  return getNivelCursoFromName(n);
+}
+
+function nivelLabel() {
+  if (dashboardNivel === 'colegio') return 'Colegio';
+  if (dashboardNivel === 'escuela') return 'Escuela';
+  return 'Todo el establecimiento';
+}
+
 function getAvailableCourseNames() {
   const fromCourses = loadCourses().map(c => c.nombre).filter(Boolean);
   return [...new Set(fromCourses)];
@@ -245,12 +288,27 @@ function getAvailableCourseNames() {
 
 function sortCursos(cursos) {
   const courseOrder = loadCourses().map(c => c.nombre);
+  const nivelByName = {};
+  loadCourses().forEach(c => { if (c.nombre) nivelByName[c.nombre] = c.nivel; });
+
+  const nivelOf = (n) => {
+    const stored = nivelByName[n];
+    if (stored === 'colegio' || stored === 'escuela') return stored;
+    return getNivelCursoFromName(n);
+  };
+
+  const rankOf = (n) => {
+    const nivel = nivelOf(n);
+    const list = nivel === 'escuela' ? CURSOS_ORDENADOS_ESCUELA : CURSOS_ORDENADOS_COLEGIO;
+    return { nivel: nivel === 'escuela' ? 1 : 0, idx: list.indexOf(n) };
+  };
+
   return [...cursos].sort((a, b) => {
-    const ia = CURSOS_ORDENADOS.indexOf(a);
-    const ib = CURSOS_ORDENADOS.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
+    const ra = rankOf(a), rb = rankOf(b);
+    if (ra.nivel !== rb.nivel) return ra.nivel - rb.nivel;
+    if (ra.idx !== -1 && rb.idx !== -1) return ra.idx - rb.idx;
+    if (ra.idx !== -1) return -1;
+    if (rb.idx !== -1) return 1;
 
     const oa = courseOrder.indexOf(a);
     const ob = courseOrder.indexOf(b);
@@ -644,6 +702,31 @@ let evolutionView = 'daily';
 let evolutionFrom = '';
 let evolutionTo = '';
 
+// Nivel seleccionado en el panel: 'todo' | 'colegio' | 'escuela'
+let dashboardNivel = 'todo';
+
+function filterByNivel(students, atrasos) {
+  if (dashboardNivel === 'todo') return { students, atrasos };
+  const allowed = new Set();
+  students.forEach(s => { if (getCursoNivel(s.curso) === dashboardNivel) allowed.add(s.id); });
+  return {
+    students: students.filter(s => allowed.has(s.id)),
+    atrasos: atrasos.filter(a => allowed.has(a.studentId)),
+  };
+}
+
+function setDashboardNivel(nivel) {
+  dashboardNivel = ['colegio', 'escuela', 'todo'].indexOf(nivel) !== -1 ? nivel : 'todo';
+  document.querySelectorAll('#dashboard-nivel-switcher .btn-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.nivel === dashboardNivel);
+  });
+  renderDashboard();
+}
+
+document.querySelectorAll('#dashboard-nivel-switcher .btn-chip').forEach(btn => {
+  btn.addEventListener('click', () => setDashboardNivel(btn.dataset.nivel));
+});
+
 function setEvolutionRange(range, view = 'daily') {
   evolutionRange = range;
   evolutionView = view;
@@ -677,9 +760,9 @@ function getEvolutionWindow() {
   return { from, to };
 }
 
-function buildEvolutionSeries() {
+function buildEvolutionSeries(atrasos) {
   const { from, to } = getEvolutionWindow();
-  const all = loadAtrasos().filter(a => {
+  const all = (atrasos || loadAtrasos()).filter(a => {
     const date = new Date(`${a.fecha}T00:00:00`);
     return date >= from && date <= to;
   });
@@ -733,8 +816,9 @@ function buildEvolutionSeries() {
 }
 
 function renderDashboard() {
-  const atrasos  = loadAtrasos();
-  const students = loadStudents();
+  const allAtrasos = loadAtrasos();
+  const allStudents = loadStudents();
+  const { students, atrasos } = filterByNivel(allStudents, allAtrasos);
   const todayStr = today();
 
   const hoy     = atrasos.filter(a => a.fecha === todayStr);
@@ -823,11 +907,17 @@ function renderDashboard() {
 
   const allCourseNames = getAvailableCourseNames();
 
-  allCourseNames.forEach(c => {
+  // Cursos del nivel seleccionado; en "Todo" se muestran todos los cursos.
+  let courseNames = allCourseNames;
+  if (dashboardNivel !== 'todo') {
+    courseNames = allCourseNames.filter(c => getCursoNivel(c) === dashboardNivel);
+  }
+
+  courseNames.forEach(c => {
     if (!(c in byCurso)) byCurso[c] = 0;
   });
 
-  const cursoEntries = sortCursos(allCourseNames).map(c => [c, byCurso[c] || 0]);
+  const cursoEntries = sortCursos(courseNames).map(c => [c, byCurso[c] || 0]);
   const cursoLabels = cursoEntries.map(e => e[0]);
   const cursoData   = cursoEntries.map(e => e[1]);
 
@@ -889,7 +979,7 @@ function renderDashboard() {
     },
   });
 
-const evolution = buildEvolutionSeries();
+const evolution = buildEvolutionSeries(atrasos);
   const ctx = document.getElementById('chart-evolucion').getContext('2d');
   if (chartEvolucion) chartEvolucion.destroy();
   chartEvolucion = new Chart(ctx, {
@@ -1137,6 +1227,28 @@ function refreshCursosDatalist() {
   dl.innerHTML = names.map(c => `<option value="${c}">`).join('');
 }
 
+// Autodetección del nivel cuando el nombre coincide con el padrón de cada nivel.
+function autoDetectNivel(nombre) {
+  const n = String(nombre || '').trim();
+  if (CURSOS_ORDENADOS_ESCUELA.indexOf(n) !== -1) return 'escuela';
+  if (CURSOS_ORDENADOS_COLEGIO.indexOf(n) !== -1) return 'colegio';
+  return null;
+}
+
+function updateNivelFromCourse(nombre, selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const detected = autoDetectNivel(nombre);
+  if (detected) sel.value = detected;
+}
+
+document.getElementById('est-curso').addEventListener('input', function () {
+  updateNivelFromCourse(this.value, 'est-nivel');
+});
+document.getElementById('est-batch-curso').addEventListener('input', function () {
+  updateNivelFromCourse(this.value, 'est-batch-nivel');
+});
+
 function renderEstudiantes() {
   refreshCursosDatalist();
   const search = document.getElementById('est-search').value.toLowerCase();
@@ -1200,6 +1312,10 @@ function renderCursos() {
 
   tbody.innerHTML = names.map(c => {
     const count = students.filter(s => s.curso === c).length;
+    const isEscuela = getCursoNivel(c) === 'escuela';
+    const nivelBadge = isEscuela
+      ? '<span class="badge badge-nivel-escuela">Escuela</span>'
+      : '<span class="badge badge-nivel-colegio">Colegio</span>';
     const actions = isAdmin()
       ? `<div class="cursos-actions">
           <button class="btn btn-icon" data-curso="${encodeURIComponent(c)}" onclick="openRenameCurso(this)" title="Renombrar curso">✏️</button>
@@ -1208,6 +1324,7 @@ function renderCursos() {
       : '';
     return `<div class="cursos-row">
       <span class="cursos-nombre" title="${c}">${c}</span>
+      ${nivelBadge}
       <span class="badge badge-blue cursos-count">${count}</span>
       ${actions}
     </div>`;
@@ -1278,6 +1395,8 @@ window.editStudent = function (id) {
   document.getElementById('est-nombre').value = s.nombre;
   document.getElementById('est-curso').value = s.curso;
   document.getElementById('est-email').value = s.email || '';
+  const estNivelSel = document.getElementById('est-nivel');
+  if (estNivelSel) estNivelSel.value = getCursoNivel(s.curso);
   setEstFormMode('individual');
   document.getElementById('est-mode-toggle').style.display = 'none';
   document.getElementById('form-estudiante-card').style.display = 'block';
@@ -1296,13 +1415,14 @@ async function handleIndividualSubmit() {
   const nombre = document.getElementById('est-nombre').value.trim();
   const curso  = document.getElementById('est-curso').value.trim();
   const email  = document.getElementById('est-email').value.trim();
+  const nivel  = document.getElementById('est-nivel') ? document.getElementById('est-nivel').value : getCursoNivel(curso);
   if (!nombre || !curso) { showToast('Complete los campos obligatorios.', 'error'); return; }
 
   if (isSupabaseEnabled() && usingSupabaseData) {
     try {
       const payload = editingStudentId
-        ? { action: 'update', id: editingStudentId, nombre, curso, email }
-        : { action: 'create', nombre, curso, email };
+        ? { action: 'update', id: editingStudentId, nombre, curso, email, nivel }
+        : { action: 'create', nombre, curso, email, nivel };
       const result = await callEdgeFunction('manage-students', payload);
       if (result.error) { showToast(result.error, 'error'); return; }
       saveStudents(result.students || []);
@@ -1337,6 +1457,7 @@ async function handleIndividualSubmit() {
 
 async function handleBatchSubmit() {
   const curso = document.getElementById('est-batch-curso').value.trim();
+  const nivel = document.getElementById('est-batch-nivel') ? document.getElementById('est-batch-nivel').value : getCursoNivel(curso);
   const raw = document.getElementById('est-batch-nombres').value;
   if (!curso) { showToast('Ingrese el nombre del curso.', 'error'); return; }
 
@@ -1356,6 +1477,7 @@ async function handleBatchSubmit() {
         const result = await callEdgeFunction('manage-students', {
           action: 'create-course',
           curso,
+          nivel,
           estudiantes: names,
         });
         if (result.error) { showToast(result.error, 'error'); return; }
@@ -1376,7 +1498,7 @@ async function handleBatchSubmit() {
       const existingCourses = loadCourses();
       let cursoEntry = existingCourses.find(c => c.nombre === curso);
       if (!cursoEntry) {
-        cursoEntry = { id: nextId('ca_seq_c'), nombre: curso };
+        cursoEntry = { id: nextId('ca_seq_c'), nombre: curso, nivel };
         existingCourses.push(cursoEntry);
         saveCourses(existingCourses);
       }
@@ -1746,8 +1868,9 @@ document.getElementById('btn-limpiar-registros').addEventListener('click', clear
 
 // ─── EXPORT: DATOS DEL PANEL (compartidos) ──────────────────
 function buildDashboardExportData() {
-  const atrasos  = loadAtrasos();
-  const students = loadStudents();
+  const allAtrasos = loadAtrasos();
+  const allStudents = loadStudents();
+  const { students, atrasos } = filterByNivel(allStudents, allAtrasos);
   const todayStr = today();
   const hoy      = atrasos.filter(a => a.fecha === todayStr);
   const semana   = atrasos.filter(a => a.fecha >= dateOffset(6));
@@ -1771,11 +1894,12 @@ function buildDashboardExportData() {
     const st = students.find(s => s.id === a.studentId);
     if (st && st.curso) byCurso[st.curso] = (byCurso[st.curso] || 0) + 1;
   });
-  const allCourseNames = getAvailableCourseNames();
-  allCourseNames.forEach(c => { if (!(c in byCurso)) byCurso[c] = 0; });
-  const cursoEntries = sortCursos(allCourseNames).map(c => [c, byCurso[c] || 0]);
+  let courseNames = getAvailableCourseNames();
+  if (dashboardNivel !== 'todo') courseNames = courseNames.filter(c => getCursoNivel(c) === dashboardNivel);
+  courseNames.forEach(c => { if (!(c in byCurso)) byCurso[c] = 0; });
+  const cursoEntries = sortCursos(courseNames).map(c => [c, byCurso[c] || 0]);
 
-  const evolution = buildEvolutionSeries();
+  const evolution = buildEvolutionSeries(atrasos);
   const { from, to } = getEvolutionWindow();
   const rangeLabel = `${formatDate(from.toISOString().slice(0, 10))} a ${formatDate(to.toISOString().slice(0, 10))}`;
 
@@ -1791,7 +1915,7 @@ window.exportDashboardPDF = function () {
 
   doc.setFontSize(16);
   doc.setTextColor(15, 23, 42);
-  doc.text('Control de Atrasos — Panel de Control', 14, 18);
+  doc.text(`Control de Atrasos — Panel de Control (${nivelLabel()})`, 14, 18);
 
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
@@ -1888,6 +2012,7 @@ window.exportDashboardExcel = function () {
   const resumen = [
     ['PANEL DE CONTROL', ''],
     ['Generado:', formatDate(d.todayStr)],
+    ['Nivel:', nivelLabel()],
     [''],
     ['Indicador', 'Valor'],
     ['Atrasos hoy', d.hoy.length],

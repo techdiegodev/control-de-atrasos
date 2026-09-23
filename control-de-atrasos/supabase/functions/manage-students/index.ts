@@ -16,7 +16,14 @@ function json(data: unknown, status = 200) {
 }
 
 // ── helpers ──────────────────────────────────────────────────
-async function resolveCursoId(adminClient: any, cursoNombre: string): Promise<string | number | null> {
+const NIVELES_CURSO = ["colegio", "escuela"];
+
+function normalizeNivel(value: unknown): string {
+  const v = String(value || "").trim().toLowerCase();
+  return NIVELES_CURSO.includes(v) ? v : "colegio";
+}
+
+async function resolveCursoId(adminClient: any, cursoNombre: string, nivel?: string): Promise<string | number | null> {
   const trimmed = cursoNombre.trim();
   if (!trimmed) return null;
 
@@ -31,7 +38,7 @@ async function resolveCursoId(adminClient: any, cursoNombre: string): Promise<st
 
   const { data: inserted } = await adminClient
     .from("cursos")
-    .insert({ nombre: trimmed })
+    .insert({ nombre: trimmed, nivel: normalizeNivel(nivel) })
     .select("id")
     .single();
 
@@ -60,14 +67,23 @@ async function fetchStudentsNormalized(adminClient: any) {
 }
 
 async function fetchCursosNormalized(adminClient: any) {
-  const { data } = await adminClient
+  let result = await adminClient
     .from("cursos")
-    .select("id, nombre")
+    .select("id, nombre, nivel")
     .order("nombre", { ascending: true });
 
-  return (data || []).map((c: Record<string, unknown>) => ({
+  // Si la columna nivel aún no existe (migración pendiente), se consulta el nombre únicamente.
+  if (result.error) {
+    result = await adminClient
+      .from("cursos")
+      .select("id, nombre")
+      .order("nombre", { ascending: true });
+  }
+
+  return (result.data || []).map((c: Record<string, unknown>) => ({
     id: c.id,
     nombre: String(c.nombre || ""),
+    nivel: String(c.nivel || "colegio"),
   }));
 }
 
@@ -110,9 +126,10 @@ Deno.serve(async (req) => {
       const nombre = String(body.nombre || "").trim();
       const curso = String(body.curso || "").trim();
       const email = String(body.email || "").trim();
+      const nivel = String(body.nivel || "").trim();
       if (!nombre || !curso) return json({ error: "Faltan nombre o curso" }, 400);
 
-      const cursoId = await resolveCursoId(adminClient, curso);
+      const cursoId = await resolveCursoId(adminClient, curso, nivel);
       if (!cursoId) return json({ error: "No se pudo resolver el curso" }, 500);
 
       const { data: dup } = await adminClient
@@ -141,9 +158,10 @@ Deno.serve(async (req) => {
       const nombre = String(body.nombre || "").trim();
       const curso = String(body.curso || "").trim();
       const email = String(body.email || "").trim();
+      const nivel = String(body.nivel || "").trim();
       if (!id || !nombre || !curso) return json({ error: "Faltan campos obligatorios" }, 400);
 
-      const cursoId = await resolveCursoId(adminClient, curso);
+      const cursoId = await resolveCursoId(adminClient, curso, nivel);
       if (!cursoId) return json({ error: "No se pudo resolver el curso" }, 500);
 
       const { data: dup } = await adminClient
@@ -185,11 +203,12 @@ Deno.serve(async (req) => {
     // ── CREATE-COURSE (masivo) ─────────────────────────────
     if (action === "create-course") {
       const curso = String(body.curso || "").trim();
+      const nivel = String(body.nivel || "").trim();
       const rawNames = Array.isArray(body.estudiantes) ? body.estudiantes : [];
       if (!curso) return json({ error: "Falta el nombre del curso" }, 400);
       if (rawNames.length === 0) return json({ error: "Debe indicar al menos un estudiante" }, 400);
 
-      const cursoId = await resolveCursoId(adminClient, curso);
+      const cursoId = await resolveCursoId(adminClient, curso, nivel);
       if (!cursoId) return json({ error: "No se pudo crear o resolver el curso" }, 500);
 
       const cleaned = rawNames
