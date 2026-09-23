@@ -45,20 +45,40 @@ async function resolveCursoId(adminClient: any, cursoNombre: string, nivel?: str
   return inserted?.id ?? null;
 }
 
+async function fetchAllRows(adminClient: any, table: string, select: string, orderBy: string | null = null) {
+  // PostgREST devuelve como máximo 1000 filas por petición; se pagina en bloques
+  // para no perder estudiantes/cursos cuando superan ese límite.
+  const PAGE_SIZE = 1000;
+  const all: unknown[] = [];
+  try {
+    let page = 0;
+    while (true) {
+      let query = adminClient.from(table).select(select);
+      if (orderBy) query = query.order(orderBy, { ascending: true });
+      query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data, error } = await query;
+      if (error) return { ok: false, error, rows: all };
+      const rows = Array.isArray(data) ? data : [];
+      all.push(...rows);
+      if (rows.length < PAGE_SIZE) break;
+      page += 1;
+    }
+    return { ok: true, error: null, rows: all };
+  } catch (error) {
+    return { ok: false, error, rows: all };
+  }
+}
+
 async function fetchStudentsNormalized(adminClient: any) {
-  const { data: cursos } = await adminClient
-    .from("cursos")
-    .select("id, nombre");
+  const cursosRes = await fetchAllRows(adminClient, "cursos", "id, nombre");
+  const tableRes = await fetchAllRows(adminClient, "estudiantes", "id, nombre, curso_id, email", "nombre");
+  if (!cursosRes.ok || !tableRes.ok) return [];
+
   const courseMap = new Map(
-    (cursos || []).map((c: Record<string, unknown>) => [String(c.id), String(c.nombre || "")]),
+    (cursosRes.rows || []).map((c: Record<string, unknown>) => [String(c.id), String(c.nombre || "")]),
   );
 
-  const { data: rows } = await adminClient
-    .from("estudiantes")
-    .select("id, nombre, curso_id, email")
-    .order("nombre", { ascending: true });
-
-  return (rows || []).map((r: Record<string, unknown>) => ({
+  return (tableRes.rows || []).map((r: Record<string, unknown>) => ({
     id: r.id,
     nombre: String(r.nombre || ""),
     curso: courseMap.get(String(r.curso_id)) || "",
@@ -67,20 +87,19 @@ async function fetchStudentsNormalized(adminClient: any) {
 }
 
 async function fetchCursosNormalized(adminClient: any) {
-  let result = await adminClient
-    .from("cursos")
-    .select("id, nombre, nivel")
-    .order("nombre", { ascending: true });
+  const res = await fetchAllRows(adminClient, "cursos", "id, nombre, nivel", "nombre");
 
   // Si la columna nivel aún no existe (migración pendiente), se consulta el nombre únicamente.
-  if (result.error) {
-    result = await adminClient
-      .from("cursos")
-      .select("id, nombre")
-      .order("nombre", { ascending: true });
+  if (!res.ok) {
+    const fallback = await fetchAllRows(adminClient, "cursos", "id, nombre", "nombre");
+    return (fallback.rows || []).map((c: Record<string, unknown>) => ({
+      id: c.id,
+      nombre: String(c.nombre || ""),
+      nivel: "colegio",
+    }));
   }
 
-  return (result.data || []).map((c: Record<string, unknown>) => ({
+  return (res.rows || []).map((c: Record<string, unknown>) => ({
     id: c.id,
     nombre: String(c.nombre || ""),
     nivel: String(c.nivel || "colegio"),

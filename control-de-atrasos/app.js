@@ -82,14 +82,27 @@ function courseMatches(courseA = '', courseB = '') {
 }
 
 async function trySupabaseQuery(table, select, orderBy = null, ascending = true) {
+  // Supabase/PostgREST devuelve como máximo 1000 filas por petición; se pagina
+  // en bloques para no perder estudiantes/atrasos cuando superan ese límite.
+  const PAGE_SIZE = 1000;
+  const allData = [];
   try {
-    let query = supabase.from(table).select(select);
-    if (orderBy) {
-      query = query.order(orderBy, { ascending });
+    let page = 0;
+    while (true) {
+      let query = supabase.from(table).select(select);
+      if (orderBy) {
+        query = query.order(orderBy, { ascending });
+      }
+      query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data, error } = await query;
+      if (error) return { ok: false, error, table };
+      const rows = Array.isArray(data) ? data : [];
+      allData.push(...rows);
+      if (rows.length < PAGE_SIZE) break;
+      page += 1;
+      if (page > 500) break;
     }
-    const { data, error } = await query;
-    if (error) return { ok: false, error, table };
-    return { ok: true, data: Array.isArray(data) ? data : [], table };
+    return { ok: true, data: allData, table };
   } catch (error) {
     return { ok: false, error, table };
   }
