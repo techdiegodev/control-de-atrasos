@@ -439,6 +439,33 @@ function formatFechaCorta(iso) {
   return `${parseInt(d, 10)}-${MESES_CORTOS[parseInt(m, 10) - 1] || ''}`;
 }
 
+// ─── ESCAPADO (XSS) ────────────────────────────────────────
+// Escapa un valor para insertarlo como texto o atributo (entre comillas
+// dobles) dentro de un template HTML. Neutraliza <script>, <img onerror=...>
+// y cualquier otra inyección proveniente de nombres, motivos o emails.
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Escapa un valor para usarlo como argumento de un manejador inline
+// (onclick="fn('...')"): primero se sanean caracteres JS (barra y comilla
+// simple) y luego los caracteres que podrían romper el atributo HTML.
+function escJsArg(value) {
+  return String(value == null ? '' : value)
+    .replace(/\\/g, '\\\\')
+    .replace(/[\r\n\u2028\u2029]+/g, ' ')
+    .replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function getStudent(id) {
   return loadStudents().find(s => s.id === id);
 }
@@ -866,8 +893,8 @@ function renderDashboard() {
           : '<span class="badge badge-amber">Sin Justificar</span>';
         return `<div class="today-item">
           <div class="today-info">
-            <strong>${st ? st.nombre : '—'}</strong>
-            <span>${st ? st.curso : ''} &bull; ${formatDate(a.fecha)} &bull; ${a.hora}</span>
+            <strong>${st ? esc(st.nombre) : '—'}</strong>
+            <span>${st ? esc(st.curso) : ''} &bull; ${formatDate(a.fecha)} &bull; ${esc(a.hora)}</span>
           </div>
           ${badge}
         </div>`;
@@ -903,8 +930,8 @@ function renderDashboard() {
         `<span style="color:var(--text-muted);font-size:.8rem">${i + 1}°</span>`;
       return `<tr>
         <td data-label="#">${rankBadge}</td>
-        <td data-label="Estudiante"><strong>${x.student.nombre}</strong></td>
-        <td data-label="Curso">${x.student.curso}</td>
+        <td data-label="Estudiante"><strong>${esc(x.student.nombre)}</strong></td>
+        <td data-label="Curso">${esc(x.student.curso)}</td>
         <td data-label="Total Atrasos"><span class="badge badge-blue">${x.n}</span></td>
         <td data-label="Último Atraso">${lastA ? formatDate(lastA.fecha) : '—'}</td>
       </tr>`;
@@ -1043,7 +1070,7 @@ function populateCursosDropdown() {
 
   const sel = document.getElementById('reg-curso');
   sel.innerHTML = '<option value="">— Seleccione un curso —</option>' +
-    merged.map(c => `<option value="${c}">${c}</option>`).join('');
+    merged.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 
   // Reset student dropdown
   const selEst = document.getElementById('reg-estudiante');
@@ -1075,7 +1102,7 @@ document.getElementById('reg-curso').addEventListener('change', function () {
   }
 
   selEst.innerHTML = '<option value="">— Seleccione un estudiante —</option>' +
-    estudiantes.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    estudiantes.map(s => `<option value="${esc(s.id)}">${esc(s.nombre)}</option>`).join('');
 });
 
 document.getElementById('reg-estudiante').addEventListener('change', function () {
@@ -1153,6 +1180,9 @@ function resetFormAtraso() {
 }
 
 // ─── HISTORICO ──────────────────────────────────────────────
+const HIST_PAGE_SIZE = 100;
+let histPage = 1;
+
 function renderHistorico() {
   const search = document.getElementById('filter-search').value.toLowerCase();
   const fecha  = document.getElementById('filter-fecha').value;
@@ -1164,7 +1194,7 @@ function renderHistorico() {
   const fc       = document.getElementById('filter-curso');
   const prevC    = fc.value;
   fc.innerHTML   = '<option value="">Todos los cursos</option>' +
-    cursos.map(c => `<option value="${c}" ${prevC === c ? 'selected' : ''}>${c}</option>`).join('');
+    cursos.map(c => `<option value="${esc(c)}" ${prevC === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
 
   // Populate "registrado por" filter
   const atrasosAll = loadAtrasos();
@@ -1172,7 +1202,7 @@ function renderHistorico() {
   const fp       = document.getElementById('filter-por');
   const prevP    = fp.value;
   fp.innerHTML   = '<option value="">Todos los que registraron</option>' +
-    registrantes.map(email => `<option value="${email}" ${prevP === email ? 'selected' : ''}>${email}</option>`).join('');
+    registrantes.map(email => `<option value="${esc(email)}" ${prevP === email ? 'selected' : ''}>${esc(email)}</option>`).join('');
 
   const students  = loadStudents();
   const enriched  = loadAtrasos()
@@ -1189,6 +1219,9 @@ function renderHistorico() {
 
   const tbody = document.getElementById('tbody-historico');
   const empty = document.getElementById('historico-empty');
+  const paginationEl = document.getElementById('historico-pagination');
+
+  if (paginationEl) paginationEl.classList.add('hidden');
 
   if (enriched.length === 0) {
     tbody.innerHTML = '';
@@ -1197,35 +1230,101 @@ function renderHistorico() {
   }
   empty.classList.add('hidden');
 
-  tbody.innerHTML = enriched.map(a => {
+  // Paginado: solo se renderiza la página actual.
+  const totalPages = Math.ceil(enriched.length / HIST_PAGE_SIZE);
+  if (histPage > totalPages) histPage = totalPages;
+  if (histPage < 1) histPage = 1;
+  const pageStart = (histPage - 1) * HIST_PAGE_SIZE;
+  const pageRows  = enriched.slice(pageStart, pageStart + HIST_PAGE_SIZE);
+
+  tbody.innerHTML = pageRows.map(a => {
     const badge = a.justificado
       ? '<span class="badge badge-green">Justificado</span>'
       : '<span class="badge badge-amber">Sin Justificar</span>';
-    const idLiteral = typeof a.id === 'number' ? a.id : `'${a.id}'`;
-    const actions = isAdmin()
-      ? `<button class="btn btn-icon" onclick="confirmDeleteAtraso(${idLiteral})" title="Eliminar atraso">Eliminar</button>`
+    const idLiteral = typeof a.id === 'number' ? a.id : `'${escJsArg(a.id)}'`;
+    const editBtn = `<button class="btn btn-icon btn-icon-edit" onclick="editAtraso(${idLiteral})" title="Editar / justificar">✏️</button>`;
+    const deleteBtn = `<button class="btn btn-icon" onclick="confirmDeleteAtraso(${idLiteral})" title="Eliminar atraso">Eliminar</button>`;
+    const actions = canRegister()
+      ? `${editBtn}${isAdmin() ? deleteBtn : ''}`
       : '—';
     return `<tr>
-      <td data-label="Estudiante"><strong>${a.student.nombre}</strong></td>
-      <td data-label="Curso">${a.student.curso}</td>
+      <td data-label="Estudiante"><strong>${esc(a.student.nombre)}</strong></td>
+      <td data-label="Curso">${esc(a.student.curso)}</td>
       <td data-label="Fecha">${formatDate(a.fecha)}</td>
-      <td data-label="Hora">${a.hora}</td>
+      <td data-label="Hora">${esc(a.hora)}</td>
       <td data-label="Estado">${badge}</td>
-      <td data-label="Motivo">${a.motivo || '—'}</td>
-      <td data-label="Registrado por">${a.registradoPor || '—'}</td>
+      <td data-label="Motivo">${esc(a.motivo) || '—'}</td>
+      <td data-label="Registrado por">${esc(a.registradoPor) || '—'}</td>
       <td data-label="Acción">${actions}</td>
     </tr>`;
   }).join('');
+
+  renderHistPagination(enriched.length, histPage);
 }
 
+function renderHistPagination(totalRows, page) {
+  const el = document.getElementById('historico-pagination');
+  if (!el) return;
+  const totalPages = Math.max(1, Math.ceil(totalRows / HIST_PAGE_SIZE));
+  if (totalRows === 0 || totalPages <= 1) {
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+
+  const first = (page - 1) * HIST_PAGE_SIZE + 1;
+  const last  = Math.min(page * HIST_PAGE_SIZE, totalRows);
+
+  const pages = [];
+  const fromPage = Math.max(1, page - 2);
+  const toPage   = Math.min(totalPages, page + 2);
+  if (fromPage > 1) {
+    if (fromPage > 2) pages.push('…');
+    pages.push(1);
+  }
+  for (let i = fromPage; i <= toPage; i++) pages.push(i);
+  if (toPage < totalPages) {
+    pages.push('…');
+    pages.push(totalPages);
+  }
+
+  const btn = (label, target, primary) =>
+    `<button class="btn pagination-btn${primary ? ' pagination-current' : ''}" onclick="goHistPage(${target})">${label}</button>`;
+  const disabledBtn = (label) =>
+    `<button class="btn pagination-btn" disabled>${label}</button>`;
+
+  const parts = [
+    `<span class="pagination-info">Mostrando ${first}–${last} de ${totalRows}</span>`,
+    page <= 1 ? disabledBtn('‹ Anterior') : btn('‹ Anterior', page - 1),
+    pages.map(p =>
+      p === '…'
+        ? '<span class="pagination-ellipsis">…</span>'
+        : btn(p, p, p === page)
+    ).join(''),
+    page >= totalPages ? disabledBtn('Siguiente ›') : btn('Siguiente ›', page + 1),
+  ];
+
+  el.innerHTML = parts.join('');
+  el.classList.remove('hidden');
+}
+
+window.goHistPage = function (n) {
+  histPage = n;
+  renderHistorico();
+};
+
 ['filter-search', 'filter-fecha', 'filter-curso', 'filter-por'].forEach(id =>
-  document.getElementById(id).addEventListener('input', renderHistorico));
+  document.getElementById(id).addEventListener('input', () => {
+    histPage = 1;
+    renderHistorico();
+  }));
 
 document.getElementById('btn-limpiar-filtros').addEventListener('click', () => {
   document.getElementById('filter-search').value = '';
   document.getElementById('filter-fecha').value  = '';
   document.getElementById('filter-curso').value  = '';
   document.getElementById('filter-por').value    = '';
+  histPage = 1;
   renderHistorico();
 });
 
@@ -1237,7 +1336,7 @@ function refreshCursosDatalist() {
   const dl = document.getElementById('cursos-list');
   if (!dl) return;
   const names = getAvailableCourseNames().filter(Boolean);
-  dl.innerHTML = names.map(c => `<option value="${c}">`).join('');
+  dl.innerHTML = names.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 }
 
 // Autodetección del nivel cuando el nombre coincide con el padrón de cada nivel.
@@ -1271,7 +1370,7 @@ function renderEstudiantes() {
   const fc = document.getElementById('est-filter-curso');
   const prevC = fc.value;
   fc.innerHTML = '<option value="">Todos los cursos</option>' +
-    cursos.map(c => `<option value="${c}" ${prevC === c ? 'selected' : ''}>${c}</option>`).join('');
+    cursos.map(c => `<option value="${esc(c)}" ${prevC === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
 
   const students = loadStudents().filter(s => {
     if (search && !s.nombre.toLowerCase().includes(search)) return false;
@@ -1293,13 +1392,13 @@ function renderEstudiantes() {
   tbody.innerHTML = students.map(s => {
     const total = atrasos.filter(a => a.studentId === s.id).length;
     const actions = isAdmin()
-      ? `<button class="btn btn-icon btn-icon-edit" onclick="editStudent('${s.id}')" title="Editar">✏️</button>
-         <button class="btn btn-icon" onclick="confirmDeleteStudent('${s.id}')" title="Eliminar">🗑️</button>`
+      ? `<button class="btn btn-icon btn-icon-edit" onclick="editStudent('${escJsArg(s.id)}')" title="Editar">✏️</button>
+         <button class="btn btn-icon" onclick="confirmDeleteStudent('${escJsArg(s.id)}')" title="Eliminar">🗑️</button>`
       : '—';
     return `<tr>
-      <td data-label="Nombre"><strong>${s.nombre}</strong></td>
-      <td data-label="Curso">${s.curso}</td>
-      <td data-label="Email">${s.email || '—'}</td>
+      <td data-label="Nombre"><strong>${esc(s.nombre)}</strong></td>
+      <td data-label="Curso">${esc(s.curso)}</td>
+      <td data-label="Email">${esc(s.email) || '—'}</td>
       <td data-label="Total Atrasos"><span class="badge badge-blue">${total}</span></td>
       <td data-label="Acción" style="display:flex;gap:.4rem;justify-content:flex-end">${actions}</td>
     </tr>`;
@@ -1336,7 +1435,7 @@ function renderCursos() {
         </div>`
       : '';
     return `<div class="cursos-row">
-      <span class="cursos-nombre" title="${c}">${c}</span>
+      <span class="cursos-nombre" title="${esc(c)}">${esc(c)}</span>
       ${nivelBadge}
       <span class="badge badge-blue cursos-count">${count}</span>
       ${actions}
@@ -1722,13 +1821,13 @@ async function renderUsuarios() {
     const total = countBy[u.email] || 0;
     const creado = u.created_at ? formatDate(u.created_at.slice(0, 10)) : '—';
     const propio = currentAuthUser && (currentAuthUser.email || '').toLowerCase() === String(u.email || '').toLowerCase();
-    const emailLiteral = String(u.email || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const emailLiteral = escJsArg(u.email);
     const acciones = propio
       ? '<button class="btn btn-icon" disabled title="No puede eliminar su propia cuenta">Eliminar</button>'
-      : `<button class="btn btn-icon" onclick="confirmDeleteUsuario('${u.id}', '${emailLiteral}')">Eliminar</button>`;
+      : `<button class="btn btn-icon" onclick="confirmDeleteUsuario('${escJsArg(u.id)}', '${emailLiteral}')">Eliminar</button>`;
     return `<tr>
-      <td data-label="Correo"><strong>${u.email}</strong></td>
-      <td data-label="Nombre">${u.nombre || '—'}</td>
+      <td data-label="Correo"><strong>${esc(u.email)}</strong></td>
+      <td data-label="Nombre">${esc(u.nombre) || '—'}</td>
       <td data-label="Rol">${rol}</td>
       <td data-label="Atrasos registrados"><span class="badge badge-blue">${total}</span></td>
       <td data-label="Creado">${creado}</td>
@@ -1878,6 +1977,74 @@ window.clearAllAtrasos = function () {
 };
 
 document.getElementById('btn-limpiar-registros').addEventListener('click', clearAllAtrasos);
+
+// ─── EDITAR / JUSTIFICAR ATRASO ────────────────────────────
+let editingAtrasoId = null;
+
+window.editAtraso = function (id) {
+  const a = loadAtrasos().find(x => String(x.id) === String(id));
+  if (!a) return;
+  editingAtrasoId = String(a.id);
+  const just = document.getElementById('edit-justificado');
+  just.checked = !!a.justificado;
+  document.getElementById('edit-motivo').value = a.motivo || '';
+  document.getElementById('edit-motivo-group').style.display = just.checked ? 'block' : 'none';
+  document.getElementById('edit-atraso-modal-overlay').classList.remove('hidden');
+  if (just.checked) document.getElementById('edit-motivo').focus();
+};
+
+function hideEditAtrasoModal() {
+  editingAtrasoId = null;
+  document.getElementById('edit-atraso-modal-overlay').classList.add('hidden');
+}
+
+document.getElementById('edit-justificado').addEventListener('change', function () {
+  document.getElementById('edit-motivo-group').style.display = this.checked ? 'block' : 'none';
+  if (this.checked) document.getElementById('edit-motivo').focus();
+});
+
+document.getElementById('edit-atraso-cancel').addEventListener('click', hideEditAtrasoModal);
+document.getElementById('edit-atraso-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('edit-atraso-modal-overlay')) hideEditAtrasoModal();
+});
+
+document.getElementById('edit-atraso-save').addEventListener('click', async () => {
+  if (!editingAtrasoId) return;
+  const justificado = document.getElementById('edit-justificado').checked;
+  const motivo = document.getElementById('edit-motivo').value.trim();
+
+  const current = loadAtrasos().find(x => String(x.id) === String(editingAtrasoId));
+  if (!current) {
+    hideEditAtrasoModal();
+    return;
+  }
+
+  const submit = document.getElementById('edit-atraso-save');
+  submit.disabled = true;
+  submit.textContent = 'Guardando...';
+  try {
+    if (isSupabaseEnabled() && usingSupabaseData) {
+      const { error } = await supabase
+        .from('atrasos')
+        .update({ justificado, motivo })
+        .eq('id', editingAtrasoId);
+      if (error) throw error;
+    }
+    saveAtrasos(loadAtrasos().map(a =>
+      String(a.id) === String(editingAtrasoId) ? { ...a, justificado, motivo } : a
+    ));
+    showToast('Atraso actualizado.');
+    hideEditAtrasoModal();
+    renderHistorico();
+    renderDashboard();
+  } catch (error) {
+    console.error('No se pudo actualizar el atraso.', error);
+    showToast(error.message || 'No se pudo actualizar el atraso.', 'error');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Guardar';
+  }
+});
 
 // ─── EXPORT: DATOS DEL PANEL (compartidos) ──────────────────
 function buildDashboardExportData() {

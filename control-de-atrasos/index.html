@@ -330,6 +330,7 @@
             <tbody id="tbody-historico"></tbody>
           </table>
         </div>
+        <div id="historico-pagination" class="pagination hidden"></div>
         <div id="historico-empty" class="empty-state hidden">No hay registros que coincidan.</div>
       </div>
     </div>
@@ -549,6 +550,30 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" id="btn-copy-creds">Copiar</button>
           <button class="btn btn-primary" id="btn-close-creds">Listo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDITAR / JUSTIFICAR ATRASO -->
+    <div id="edit-atraso-modal-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Editar atraso</h3>
+        <div class="form-group">
+          <label class="toggle-label">
+            <span>Atraso justificado</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="edit-justificado" />
+              <span class="toggle-track"></span>
+            </label>
+          </label>
+        </div>
+        <div class="form-group" id="edit-motivo-group" style="display:none">
+          <label for="edit-motivo">Motivo de justificación</label>
+          <input type="text" id="edit-motivo" placeholder="Ej: Médico, Transporte..." />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="edit-atraso-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="edit-atraso-save">Guardar</button>
         </div>
       </div>
     </div>

@@ -390,7 +390,8 @@ body {
   display: block;
 }
 
-/* Contenedor de altura fija para que la gráfica de cursos no crezca en bucle */
+/* Contenedor de la gráfica de cursos: la altura la define JS según el
+   número de cursos para que la gráfica se muestre completa. */
 .chart-canvas-wrap {
   position: relative;
   width: 100%;
@@ -668,6 +669,40 @@ select:disabled {
   font-size: 0.9rem;
 }
 
+/* ===== PAGINACIÓN ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.pagination-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+.pagination-btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+.pagination-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.pagination-current {
+  background: linear-gradient(180deg, #2A4A7E, #1A3263);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(26,50,99,.35);
+}
+.pagination-ellipsis { color: var(--text-muted); padding: 0 0.1rem; }
+
+@media (max-width: 640px) {
+  .pagination { justify-content: center; }
+  .pagination-info { width: 100%; text-align: center; margin-right: 0; }
+}
+
 /* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
@@ -846,7 +881,7 @@ select:disabled {
 /* ===== ESTUDIANTES LAYOUT (tabla + cursos al costado) ===== */
 .estudiantes-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 1.25rem;
   align-items: start;
 }
@@ -858,7 +893,6 @@ select:disabled {
 }
 #cursos-card .card-title { font-size: 1rem; margin-bottom: 0.7rem; }
 #cursos-list-body {
-  max-height: calc(100vh - 8.5rem);
   overflow-y: auto;
   padding-right: 0.2rem;
 }
@@ -876,9 +910,7 @@ select:disabled {
   min-width: 0;
   font-weight: 600;
   font-size: 0.85rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .cursos-count { flex-shrink: 0; font-size: 0.75rem; padding: 0.15rem 0.55rem; }
 .cursos-actions { display: flex; gap: 0.2rem; flex-shrink: 0; }
@@ -886,7 +918,6 @@ select:disabled {
 
 @media (max-width: 1100px) {
   .estudiantes-layout { grid-template-columns: 1fr; }
-  #cursos-list-body { max-height: 300px; }
 }
 
 /* ===== PRINT STYLES ===== */
